@@ -395,6 +395,7 @@ std::string find_java_exe() {
     static std::string jdk_prefix = "1.8.0";
     static std::string java_home = "JavaHome";
     static std::wstring wjava_home = widen("JavaHome");
+    static std::string java_exe_postfix = "bin/java.exe";
     // open root
     HKEY jdk_key;
     auto err_jdk = ::RegOpenKeyExW(
@@ -521,7 +522,7 @@ std::string find_java_exe() {
             if ('/' != jpath[jpath.length() - 1]) {
                 jpath.push_back('/');
             }
-            jpath.append("bin/java.exe");
+            jpath.append(java_exe_postfix);
             return jpath;
         }
     }
@@ -531,20 +532,28 @@ std::string find_java_exe() {
 } // namespace
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int) {
+    //static std::string next_jar = "../share/icedtea-web/netx.jar";
+    static std::string netx_jar = "netx.jar";
+    static std::string xboot_prefix = "-Xbootclasspath/a:";
+    static std::string main_class = "net.sourceforge.jnlp.runtime.Boot";
+    static std::string log_dir_name = "IcedTeaWeb";
+    static std::string log_file_name = "javaws_last_log.txt";
     try {
         itw::ITW_HANDLE_INSTANCE = hInstance;
-        //std::string netx_jar = "../share/icedtea-web/netx.jar";
-        std::string netx_jar = "netx.jar";
+        auto cline = std::string(lpCmdLine);
+        if (cline.empty()) {
+            throw itw::itw_exception("No arguments specified. Please specify a path to JNLP file or a 'jnlp://' URL.");
+        }
         auto localdir = itw::process_dir();
         std::string java = itw::find_java_exe();
         std::vector<std::string> args;
-        args.emplace_back("-Xbootclasspath/a:" + localdir + netx_jar);
-        args.emplace_back("net.sourceforge.jnlp.runtime.Boot");
-        args.emplace_back(std::string(lpCmdLine));
+        args.emplace_back(xboot_prefix + localdir + netx_jar);
+        args.emplace_back(main_class);
+        args.emplace_back(cline);
         auto uddir = itw::userdata_dir();
-        auto logdir = uddir + "IcedTeaWeb/";
+        auto logdir = uddir + log_dir_name;
         itw::create_dir(logdir);
-        auto logfile = logdir + "javaws_last_log.txt";
+        auto logfile = logdir + log_file_name;
         itw::start_process(java, args, logfile);
         return 0;
     } catch (const std::exception& e) {
