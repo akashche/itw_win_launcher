@@ -3,11 +3,11 @@ Windows launcher for IcedTea-Web
 
 Buld with MSVC:
 
-    cl javaws_win.cpp /EHsc
+    cl javaws_win.cpp shell32.lib ole32.lib /EHsc /MT
 
 Build with GCC (MinGW-64):
 
-    g++ javaws_win.cpp -o javaws_win.exe
+    g++ javaws_win.cpp -lshell32 -lole32 -o javaws_win.exe
 
 To run it current directory must contain:
 
