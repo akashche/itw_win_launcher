@@ -530,19 +530,17 @@ std::string find_java_exe() {
 
 } // namespace
 
-// c:/apps/jdk/jre/bin/java -splash:C:/apps/cygwin/usr/local/share/icedtea-web/javaws_splash.png '-Xbootclasspath/a:C:/apps/cygwin/usr/local/share/icedtea-web/netx.jar;C:/apps/cygwin/usr/local/share/icedtea-web/plugin.jar;C:/apps/cygwin/usr/local/share/icedtea-web/jsobject.jar:c:/apps/jdk/jre/lib/ext/nashorn.jar' -Xms8m -classpath c:/apps/jdk/jre/lib/rt.jar:c:/apps/jdk/jre/lib/jfxrt.jar -Dicedtea-web.bin.name=javaws -Dicedtea-web.bin.location=C:/apps/cygwin/usr/local/bin/javaws net.sourceforge.jnlp.runtime.Boot AccessibleScrollDemo.jnlp
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR /*lpCmdLine*/, int) {
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int) {
     try {
         itw::ITW_HANDLE_INSTANCE = hInstance;
         //std::string netx_jar = "../share/icedtea-web/netx.jar";
         std::string netx_jar = "netx.jar";
-        std::string jnlp_file = "test.jnlp";
         auto localdir = itw::process_dir();
         std::string java = itw::find_java_exe();
         std::vector<std::string> args;
         args.emplace_back("-Xbootclasspath/a:" + localdir + netx_jar);
         args.emplace_back("net.sourceforge.jnlp.runtime.Boot");
-        args.emplace_back(localdir + jnlp_file);
+        args.emplace_back(std::string(lpCmdLine));
         auto uddir = itw::userdata_dir();
         auto logdir = uddir + "IcedTeaWeb/";
         itw::create_dir(logdir);
