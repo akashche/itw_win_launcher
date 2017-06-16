@@ -5,7 +5,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
-#include <iostream>
 #include <exception>
 #include <functional>
 #include <string>
@@ -89,12 +88,12 @@ detail_defer::defer_guard<T> defer(T func) {
 
 std::string errcode_to_string(unsigned long code) ITW_NOEXCEPT;
 
-class javaws_exception : public std::exception {
+class itw_exception : public std::exception {
 protected:
     std::string message{};
 
 public:
-    javaws_exception(const std::string& message) :
+    itw_exception(const std::string& message) :
     message(message) { }
 
     virtual const char* what() const ITW_NOEXCEPT {
@@ -105,14 +104,14 @@ public:
 std::wstring widen(const std::string& st) {
     int size_needed = ::MultiByteToWideChar(CP_UTF8, 0, st.c_str(), static_cast<int>(st.length()), nullptr, 0);
     if (0 == size_needed) {
-        throw javaws_exception(std::string("Error on string widen calculation,") +
+        throw itw_exception(std::string("Error on string widen calculation,") +
             " string: [" + st + "], error: [" + errcode_to_string(::GetLastError()) + "]");
     }
     auto res = std::wstring();
     res.resize(size_needed);
     int chars_copied = ::MultiByteToWideChar(CP_UTF8, 0, st.c_str(), static_cast<int>(st.size()), std::addressof(res.front()), size_needed);
     if (chars_copied != size_needed) {
-        throw javaws_exception(std::string("Error on string widen execution,") +
+        throw itw_exception(std::string("Error on string widen execution,") +
             " string: [" + st + "], error: [" + errcode_to_string(::GetLastError()) + "]");
     }
     return res;
@@ -121,14 +120,14 @@ std::wstring widen(const std::string& st) {
 std::string narrow(const wchar_t* wstring, size_t length) {
     int size_needed = ::WideCharToMultiByte(CP_UTF8, 0, wstring, static_cast<int>(length), nullptr, 0, nullptr, nullptr);
     if (0 == size_needed) {
-        throw javaws_exception(std::string("Error on string narrow calculation,") +
+        throw itw_exception(std::string("Error on string narrow calculation,") +
             " string length: [" + std::to_string(length) + "], error code: [" + std::to_string(::GetLastError()) + "]");
     }
     auto vec = std::vector<char>();
     vec.resize(size_needed);
     int bytes_copied = ::WideCharToMultiByte(CP_UTF8, 0, wstring, static_cast<int>(length), vec.data(), size_needed, nullptr, nullptr);
     if (bytes_copied != size_needed) {
-        throw javaws_exception(std::string("Error on string narrow execution,") +
+        throw itw_exception(std::string("Error on string narrow execution,") +
             " string length: [" + std::to_string(vec.size()) + "], error code: [" + std::to_string(GetLastError()) + "]");
     }
     return std::string(vec.begin(), vec.end());
@@ -174,7 +173,7 @@ std::string process_dir() {
             vec.data(),
             static_cast<DWORD>(vec.size()));
     if (0 == success) {
-        throw javaws_exception(std::string("Error getting current executable dir,") +
+        throw itw_exception(std::string("Error getting current executable dir,") +
             " error: [" + errcode_to_string(::GetLastError()) + "]");
     }
     auto path = narrow(vec.data(), vec.size());
@@ -191,7 +190,7 @@ std::string userdata_dir() {
             nullptr,
             std::addressof(wbuf));
     if (S_OK != err || nullptr == wbuf) {
-        throw javaws_exception("Error getting userdata dir");
+        throw itw_exception("Error getting userdata dir");
     }
     auto deferred = defer([wbuf]() ITW_NOEXCEPT {
         ::CoTaskMemFree(wbuf);
@@ -206,13 +205,12 @@ void create_dir(const std::string& dirpath) {
     auto wpath = widen(dirpath);
     BOOL err = ::CreateDirectoryW(std::addressof(wpath.front()), nullptr);
     if (0 == err && ERROR_ALREADY_EXISTS != ::GetLastError()) {
-        throw javaws_exception(std::string("Error getting creating dir,") +
+        throw itw_exception(std::string("Error getting creating dir,") +
             " path: [" + dirpath + "], error: [" + errcode_to_string(::GetLastError()) + "]");
     }
 }
 
 int start_process(const std::string& executable, const std::vector<std::string>& args, const std::string& out) {
-
     // open stdout file
     auto wout = widen(out);
     SECURITY_ATTRIBUTES sa;
@@ -228,7 +226,7 @@ int start_process(const std::string& executable, const std::vector<std::string>&
             FILE_ATTRIBUTE_NORMAL,
             nullptr);
     if (INVALID_HANDLE_VALUE == out_handle) {
-        throw javaws_exception(std::string("Error opening log file descriptor,") + 
+        throw itw_exception(std::string("Error opening log file descriptor,") + 
                 " message: [" + errcode_to_string(::GetLastError()) + "]," +
                 " specified out path: [" + out + "]");
     }
@@ -246,12 +244,12 @@ int start_process(const std::string& executable, const std::vector<std::string>&
             std::addressof(tasize));
     
     if (0 != err_tasize || ::GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
-        throw javaws_exception(std::string("Error preparing attrlist,") + 
+        throw itw_exception(std::string("Error preparing attrlist,") + 
                 " message: [" + errcode_to_string(::GetLastError()) + "]");
     }
     auto talist = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(std::malloc(tasize));
     if (nullptr == talist) {
-        throw javaws_exception(std::string("Error preparing attrlist,") + 
+        throw itw_exception(std::string("Error preparing attrlist,") + 
                 " message: [" + errcode_to_string(::GetLastError()) + "]");
     }
     auto deferred_talist = defer([talist]() ITW_NOEXCEPT {
@@ -263,7 +261,7 @@ int start_process(const std::string& executable, const std::vector<std::string>&
             0,
             std::addressof(tasize));
     if (0 == err_ta) {
-        throw javaws_exception(std::string("Error initializing attrlist,") + 
+        throw itw_exception(std::string("Error initializing attrlist,") + 
                 " message: [" + errcode_to_string(::GetLastError()) + "]");
     }
     auto deferred_talist_delete = defer([talist]() ITW_NOEXCEPT {
@@ -278,7 +276,7 @@ int start_process(const std::string& executable, const std::vector<std::string>&
         nullptr,
         nullptr); 
     if (0 == err_taset) {
-        throw javaws_exception(std::string("Error filling attrlist,") + 
+        throw itw_exception(std::string("Error filling attrlist,") + 
                 " message: [" + errcode_to_string(::GetLastError()) + "]");
     }
 
@@ -319,7 +317,7 @@ int start_process(const std::string& executable, const std::vector<std::string>&
             std::addressof(si.StartupInfo), 
             std::addressof(pi));
     if (0 == ret) {
-        throw javaws_exception(std::string("Process create error: [") + errcode_to_string(::GetLastError()) + "]," +
+        throw itw_exception(std::string("Process create error: [") + errcode_to_string(::GetLastError()) + "]," +
             " command line: [" + cmd_string + "]");
     }
     ::CloseHandle(pi.hThread);
@@ -390,6 +388,146 @@ void show_error_dialog(const std::string& error) {
             nullptr);
 }
 
+
+std::string find_java_exe() {
+    static std::string jdk_key_name = "SOFTWARE\\JavaSoft\\Java Development Kit";
+    static std::wstring wjdk_key_name = widen(jdk_key_name);
+    static std::string jdk_prefix = "1.8.0";
+    static std::string java_home = "JavaHome";
+    static std::wstring wjava_home = widen("JavaHome");
+    // open root
+    HKEY jdk_key;
+    auto err_jdk = ::RegOpenKeyExW(
+            HKEY_LOCAL_MACHINE,
+            wjdk_key_name.c_str(), 
+            0,
+            KEY_READ | KEY_ENUMERATE_SUB_KEYS,
+            std::addressof(jdk_key));
+    if (ERROR_SUCCESS != err_jdk) {
+        throw itw_exception(std::string("Error opening registry key,") +
+                " name: [" + jdk_key_name + "]," +
+                " message: [" + errcode_to_string(err_jdk) + "]");
+    }
+    auto deferred_jdk = defer([jdk_key]() ITW_NOEXCEPT {
+        ::RegCloseKey(jdk_key);
+    });
+    // identify buffer size for children
+    DWORD subkeys_num = 0;
+    DWORD max_subkey_len = 0;
+    auto err_info = RegQueryInfoKey(
+            jdk_key,
+            nullptr,
+            nullptr,
+            nullptr,
+            std::addressof(subkeys_num),
+            std::addressof(max_subkey_len),
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr);
+    if (ERROR_SUCCESS != err_info) {
+        throw itw_exception(std::string("Error querieing registry key,") +
+                " name: [" + jdk_key_name + "]," +
+                " message: [" + errcode_to_string(err_info) + "]");
+    }
+    // collect children names
+    auto vec = std::vector<std::string>();
+    vec.reserve(subkeys_num);
+    max_subkey_len += 1; // NUL-terminator
+    std::wstring subkey_buf;
+    subkey_buf.resize(max_subkey_len);
+    for (DWORD i = 0; i < subkeys_num; i++) {
+        DWORD len = max_subkey_len;
+        auto err_enum = ::RegEnumKeyExW(
+                jdk_key,
+                i,
+                std::addressof(subkey_buf.front()),
+                std::addressof(len),
+                nullptr,
+                nullptr,
+                nullptr,
+                nullptr);
+        if (ERROR_SUCCESS != err_enum) {
+            throw itw_exception(std::string("Error enumerating registry key,") +
+                    " name: [" + jdk_key_name + "]," +
+                    " message: [" + errcode_to_string(err_enum) + "]");
+        }
+        vec.emplace_back(narrow(subkey_buf.data(), len));
+    }
+    // look for prefix match
+    std::sort(vec.begin(), vec.end());
+    std::string versions;
+    for (auto& el : vec) {
+        if (!versions.empty()) {
+            versions.append(", ");
+        }
+        versions.append(el);
+        if (0 == el.compare(0, jdk_prefix.length(), jdk_prefix)) {
+            // found match, open it
+            std::string subkey_name = jdk_key_name + "\\" + el;
+            std::wstring wsubkey_name = widen(subkey_name);
+            HKEY jdk_subkey;
+            auto err_jdk_subkey = ::RegOpenKeyExW(
+                    HKEY_LOCAL_MACHINE,
+                    wsubkey_name.c_str(), 
+                    0,
+                    KEY_READ,
+                    std::addressof(jdk_subkey));
+            if (ERROR_SUCCESS != err_jdk_subkey) {
+                throw itw_exception(std::string("Error opening registry key,") +
+                        " name: [" + subkey_name + "]," +
+                        " message: [" + errcode_to_string(err_jdk_subkey) + "]");
+            }
+            auto deferred_sub = defer([jdk_subkey]() ITW_NOEXCEPT {
+                ::RegCloseKey(jdk_subkey);
+            });
+            // find out value len
+            DWORD value_len = 0;
+            DWORD value_type = 0;
+            auto err_len = ::RegQueryValueExW(
+                    jdk_subkey,
+                    wjava_home.c_str(),
+                    nullptr,
+                    std::addressof(value_type),
+                    nullptr,
+                    std::addressof(value_len));
+            if (ERROR_SUCCESS != err_len || !(value_len > 0) || REG_SZ != value_type) {
+                throw itw_exception(std::string("Error opening registry value len,") +
+                        " key: [" + subkey_name + "]," +
+                        " value: [" + java_home + "]," +
+                        " message: [" + errcode_to_string(err_len) + "]");
+            }
+            // get value
+            std::wstring wvalue;
+            wvalue.resize(((value_len)/sizeof(wchar_t)));
+            auto err_val = ::RegQueryValueEx(
+                    jdk_subkey,
+                    wjava_home.c_str(),
+                    nullptr,
+                    nullptr,
+                    reinterpret_cast<LPBYTE>(std::addressof(wvalue.front())),
+                    std::addressof(value_len));
+            if (ERROR_SUCCESS != err_val) {
+                throw itw_exception(std::string("Error opening registry value,") +
+                        " key: [" + subkey_name + "]," +
+                        " value: [" + java_home + "]," +
+                        " message: [" + errcode_to_string(err_val) + "]");
+            }
+            // format and return path
+            std::string jpath = narrow(wvalue.data(), wvalue.length() - 1);
+            std::replace(jpath.begin(), jpath.end(), '\\', '/');
+            if ('/' != jpath[jpath.length() - 1]) {
+                jpath.push_back('/');
+            }
+            jpath.append("bin/java.exe");
+            return jpath;
+        }
+    }
+    throw itw_exception("JDK 8 runtime directory not found, please install JDK 8, available versions: [" + versions + "].");
+}
+
 } // namespace
 
 // c:/apps/jdk/jre/bin/java -splash:C:/apps/cygwin/usr/local/share/icedtea-web/javaws_splash.png '-Xbootclasspath/a:C:/apps/cygwin/usr/local/share/icedtea-web/netx.jar;C:/apps/cygwin/usr/local/share/icedtea-web/plugin.jar;C:/apps/cygwin/usr/local/share/icedtea-web/jsobject.jar:c:/apps/jdk/jre/lib/ext/nashorn.jar' -Xms8m -classpath c:/apps/jdk/jre/lib/rt.jar:c:/apps/jdk/jre/lib/jfxrt.jar -Dicedtea-web.bin.name=javaws -Dicedtea-web.bin.location=C:/apps/cygwin/usr/local/bin/javaws net.sourceforge.jnlp.runtime.Boot AccessibleScrollDemo.jnlp
@@ -400,16 +538,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR /*lpCmdLine*/, int) {
         std::string netx_jar = "netx.jar";
         std::string jnlp_file = "test.jnlp";
         auto localdir = itw::process_dir();
-        std::string java_home = localdir + "jdk/";
-        std::string java = java_home + "bin/java.exe";
+        std::string java = itw::find_java_exe();
         std::vector<std::string> args;
         args.emplace_back("-Xbootclasspath/a:" + localdir + netx_jar);
         args.emplace_back("net.sourceforge.jnlp.runtime.Boot");
         args.emplace_back(localdir + jnlp_file);
-        std::cout << java << std::endl;
-        for (auto& st : args) {
-            std::cout << st << std::endl;
-        }
         auto uddir = itw::userdata_dir();
         auto logdir = uddir + "IcedTeaWeb/";
         itw::create_dir(logdir);
@@ -417,10 +550,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR /*lpCmdLine*/, int) {
         itw::start_process(java, args, logfile);
         return 0;
     } catch (const std::exception& e) {
-        std::cout << std::string(e.what()) << std::endl;
         itw::show_error_dialog(e.what());
     } catch (...) {
-        std::cout << "Error" << std::endl;
-        itw::show_error_dialog("Error");
+        itw::show_error_dialog("System error");
     }
 }

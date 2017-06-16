@@ -1,0 +1,7 @@
+*.swp
+*.res
+*.exe
+*.obj
+*.jnlp
+*.jar
+/jdk

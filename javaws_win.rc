@@ -1,0 +1,7 @@
+#define UNICODE
+#define _UNICODE
+#include <windows.h>
+
+111 ICON icon.ico
+2   RT_MANIFEST javaws_win.manifest
+
