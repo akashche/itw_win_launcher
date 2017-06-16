@@ -558,7 +558,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int) {
         return 0;
     } catch (const std::exception& e) {
         itw::show_error_dialog(e.what());
+        return 1;
     } catch (...) {
         itw::show_error_dialog("System error");
+        return 1;
     }
 }
