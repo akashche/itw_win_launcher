@@ -5,3 +5,6 @@
 *.jnlp
 *.jar
 /jdk
+target/
+**/*.rs.bk
+Cargo.lock

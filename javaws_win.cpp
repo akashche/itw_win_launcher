@@ -102,14 +102,26 @@ public:
 };
 
 std::wstring widen(const std::string& st) {
-    int size_needed = ::MultiByteToWideChar(CP_UTF8, 0, st.c_str(), static_cast<int>(st.length()), nullptr, 0);
+    int size_needed = ::MultiByteToWideChar(
+            CP_UTF8,
+            0,
+            st.c_str(),
+            static_cast<int>(st.length()),
+            nullptr,
+            0);
     if (0 == size_needed) {
         throw itw_exception(std::string("Error on string widen calculation,") +
             " string: [" + st + "], error: [" + errcode_to_string(::GetLastError()) + "]");
     }
     auto res = std::wstring();
     res.resize(size_needed);
-    int chars_copied = ::MultiByteToWideChar(CP_UTF8, 0, st.c_str(), static_cast<int>(st.size()), std::addressof(res.front()), size_needed);
+    int chars_copied = ::MultiByteToWideChar(
+            CP_UTF8,
+            0,
+            st.c_str(),
+            static_cast<int>(st.size()),
+            std::addressof(res.front()),
+            size_needed);
     if (chars_copied != size_needed) {
         throw itw_exception(std::string("Error on string widen execution,") +
             " string: [" + st + "], error: [" + errcode_to_string(::GetLastError()) + "]");
@@ -118,17 +130,33 @@ std::wstring widen(const std::string& st) {
 }
 
 std::string narrow(const wchar_t* wstring, size_t length) {
-    int size_needed = ::WideCharToMultiByte(CP_UTF8, 0, wstring, static_cast<int>(length), nullptr, 0, nullptr, nullptr);
+    int size_needed = ::WideCharToMultiByte(
+            CP_UTF8,
+            0,
+            wstring,
+            static_cast<int>(length),
+            nullptr,
+            0,
+            nullptr,
+            nullptr);
     if (0 == size_needed) {
         throw itw_exception(std::string("Error on string narrow calculation,") +
             " string length: [" + std::to_string(length) + "], error code: [" + std::to_string(::GetLastError()) + "]");
     }
     auto vec = std::vector<char>();
     vec.resize(size_needed);
-    int bytes_copied = ::WideCharToMultiByte(CP_UTF8, 0, wstring, static_cast<int>(length), vec.data(), size_needed, nullptr, nullptr);
+    int bytes_copied = ::WideCharToMultiByte(
+            CP_UTF8,
+            0,
+            wstring,
+            static_cast<int>(length),
+            vec.data(),
+            size_needed,
+            nullptr,
+            nullptr);
     if (bytes_copied != size_needed) {
         throw itw_exception(std::string("Error on string narrow execution,") +
-            " string length: [" + std::to_string(vec.size()) + "], error code: [" + std::to_string(GetLastError()) + "]");
+            " string length: [" + std::to_string(vec.size()) + "], error code: [" + std::to_string(::GetLastError()) + "]");
     }
     return std::string(vec.begin(), vec.end());
 }
@@ -168,7 +196,7 @@ std::string errcode_to_string(unsigned long code) ITW_NOEXCEPT {
 std::string process_dir() {
     auto vec = std::vector<wchar_t>();
     vec.resize(MAX_PATH);
-    auto success = ::GetModuleFileName(
+    auto success = ::GetModuleFileNameW(
             nullptr,
             vec.data(),
             static_cast<DWORD>(vec.size()));
@@ -203,7 +231,9 @@ std::string userdata_dir() {
 
 void create_dir(const std::string& dirpath) {
     auto wpath = widen(dirpath);
-    BOOL err = ::CreateDirectoryW(std::addressof(wpath.front()), nullptr);
+    BOOL err = ::CreateDirectoryW(
+            std::addressof(wpath.front()),
+            nullptr);
     if (0 == err && ERROR_ALREADY_EXISTS != ::GetLastError()) {
         throw itw_exception(std::string("Error getting creating dir,") +
             " path: [" + dirpath + "], error: [" + errcode_to_string(::GetLastError()) + "]");
