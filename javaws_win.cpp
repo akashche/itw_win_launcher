@@ -445,7 +445,7 @@ std::string find_java_exe() {
     // identify buffer size for children
     DWORD subkeys_num = 0;
     DWORD max_subkey_len = 0;
-    auto err_info = RegQueryInfoKey(
+    auto err_info = ::RegQueryInfoKeyW(
             jdk_key,
             nullptr,
             nullptr,
@@ -533,7 +533,7 @@ std::string find_java_exe() {
             // get value
             std::wstring wvalue;
             wvalue.resize(((value_len)/sizeof(wchar_t)));
-            auto err_val = ::RegQueryValueEx(
+            auto err_val = ::RegQueryValueExW(
                     jdk_subkey,
                     wjava_home.c_str(),
                     nullptr,
@@ -566,7 +566,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int) {
     static std::string netx_jar = "netx.jar";
     static std::string xboot_prefix = "-Xbootclasspath/a:";
     static std::string main_class = "net.sourceforge.jnlp.runtime.Boot";
-    static std::string log_dir_name = "IcedTeaWeb";
+    static std::string log_dir_name = "IcedTeaWeb/";
     static std::string log_file_name = "javaws_last_log.txt";
     try {
         itw::ITW_HANDLE_INSTANCE = hInstance;

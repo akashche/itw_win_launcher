@@ -24,6 +24,7 @@ extern crate libc;
 
 #[cfg(windows)]
 #[repr(C)]
+#[allow(non_snake_case)]
 struct STARTUPINFOEXW {
     StartupInfo: winapi::processthreadsapi::STARTUPINFOW,
     lpAttributeList: winapi::processthreadsapi::PPROC_THREAD_ATTRIBUTE_LIST
@@ -239,7 +240,7 @@ fn start_process(executable: &str, args: &[std::string::String], out: &str) -> u
             panic!(format!("Error preparing attrlist, \
                     message: [{}]", errcode_to_string(kernel32::GetLastError())));
         }
-        let mut talist = libc::malloc(tasize as usize) as *mut winapi::processthreadsapi::PROC_THREAD_ATTRIBUTE_LIST;
+        let talist = libc::malloc(tasize as usize) as *mut winapi::processthreadsapi::PROC_THREAD_ATTRIBUTE_LIST;
         if std::ptr::null_mut::<winapi::processthreadsapi::PROC_THREAD_ATTRIBUTE_LIST>() == talist {
             panic!(format!("Error preparing attrlist, \
                     message: [{}]", errcode_to_string(kernel32::GetLastError())));
@@ -349,9 +350,10 @@ extern "system" {
 
 #[cfg(windows)]
 #[no_mangle]
-pub extern "system" fn error_dialog_cb(hwnd: winapi::windef::HWND, uNotification: winapi::minwindef::UINT, wParam: winapi::minwindef::WPARAM,
-        lParam: winapi::minwindef::LPARAM, lpRefData: winapi::basetsd::LONG_PTR) -> winapi::winerror::HRESULT {
-    if (winapi::commctrl::TDN_HYPERLINK_CLICKED.0 != uNotification) {
+#[allow(non_snake_case)]
+pub extern "system" fn error_dialog_cb(_: winapi::windef::HWND, uNotification: winapi::minwindef::UINT, _: winapi::minwindef::WPARAM,
+        lParam: winapi::minwindef::LPARAM, _: winapi::basetsd::LONG_PTR) -> winapi::winerror::HRESULT {
+    if winapi::commctrl::TDN_HYPERLINK_CLICKED.0 != uNotification {
         return winapi::winerror::S_OK;
     }
     unsafe {
@@ -364,7 +366,7 @@ pub extern "system" fn error_dialog_cb(hwnd: winapi::windef::HWND, uNotification
                 winapi::winuser::SW_SHOW);
         let intres = res as i64;
         let success = intres > 32;
-        if (!success) {
+        if !success {
             let wtitle = widen("IcedTea-Web");
             let werror = widen("Error starting default web-browser");
             let wempty = widen("");
@@ -431,23 +433,160 @@ fn show_error_dialog(error: &str) -> () {
                 std::ptr::null_mut::<winapi::windef::HWND__>(),
                 werror.as_ptr(),
                 wtitle.as_ptr(),
-                winapi::winuser::MB_OKCANCEL);
+                winapi::winuser::MB_OK);
+    }
+}
+
+#[cfg(windows)]
+fn find_java_exe() -> std::string::String {
+    let jdk_key_name = "SOFTWARE\\JavaSoft\\Java Development Kit";
+    let wjdk_key_name = widen(jdk_key_name);
+    let jdk_prefix = "1.8.0";
+    let java_home = "JavaHome";
+    let wjava_home = widen("JavaHome");
+    let java_exe_postfix = "bin/java.exe";
+    unsafe {
+        // open root
+        let mut jdk_key = std::ptr::null_mut::<winapi::minwindef::HKEY__>();
+        let err_jdk = advapi32::RegOpenKeyExW(
+                winapi::HKEY_LOCAL_MACHINE,
+                wjdk_key_name.as_ptr(), 
+                0,
+                winapi::winnt::KEY_READ | winapi::winnt::KEY_ENUMERATE_SUB_KEYS,
+                &mut jdk_key) as u32;
+        if winapi::winerror::ERROR_SUCCESS != err_jdk {
+            panic!(format!("Error opening registry key, \
+                    name: [{}], message: [{}]", jdk_key_name, errcode_to_string(err_jdk)));
+        }
+        defer!({
+            advapi32::RegCloseKey(jdk_key);
+        });
+        // identify buffer size for children
+        let mut subkeys_num: winapi::minwindef::DWORD = 0;
+        let mut max_subkey_len: winapi::minwindef::DWORD = 0;
+        let err_info = advapi32::RegQueryInfoKeyW(
+                jdk_key,
+                std::ptr::null_mut::<u16>(),
+                std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                &mut subkeys_num,
+                &mut max_subkey_len,
+                std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                std::ptr::null_mut::<winapi::minwindef::FILETIME>()) as u32;
+        if winapi::winerror::ERROR_SUCCESS != err_info {
+            panic!(format!("Error querieing registry key, \
+                    name: [{}], message: [{}]", jdk_key_name, errcode_to_string(err_info)));
+        }
+        // collect children names
+        let mut vec: std::vec::Vec<std::string::String> = std::vec::Vec::new();
+        vec.reserve(subkeys_num as usize);
+        max_subkey_len += 1; // NUL-terminator
+        let mut subkey_buf: std::vec::Vec<u16> = std::vec::Vec::new();
+        subkey_buf.resize(max_subkey_len as usize, 0);
+        for i in 0..subkeys_num {
+            let mut len = max_subkey_len;
+            let err_enum = advapi32::RegEnumKeyExW(
+                    jdk_key,
+                    i as winapi::minwindef::DWORD,
+                    subkey_buf.as_mut_ptr(),
+                    &mut len,
+                    std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                    std::ptr::null_mut::<u16>(),
+                    std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                    std::ptr::null_mut::<winapi::minwindef::FILETIME>()) as u32;
+            if winapi::winerror::ERROR_SUCCESS != err_enum {
+                panic!(format!("Error enumerating registry key, \
+                        name: [{}], message: [{}]", jdk_key_name, errcode_to_string(err_enum)));
+            }
+            let slice = std::slice::from_raw_parts(subkey_buf.as_ptr(), len as usize); 
+            vec.push(narrow(slice));
+        }
+        // look for prefix match
+        vec.sort();
+        let mut versions = std::string::String::new();
+        for el in vec {
+            if !versions.is_empty() {
+                versions.push_str(", ");
+            }
+            versions.push_str(el.as_str());
+            if el.starts_with(jdk_prefix) {
+                // found match, open it
+                let subkey_name = format!("{}\\{}", jdk_key_name, el);
+                let wsubkey_name = widen(subkey_name.as_str());
+                let mut jdk_subkey = std::ptr::null_mut::<winapi::minwindef::HKEY__>();
+                let err_jdk_subkey = advapi32::RegOpenKeyExW(
+                        winapi::HKEY_LOCAL_MACHINE,
+                        wsubkey_name.as_ptr(), 
+                        0,
+                        winapi::winnt::KEY_READ,
+                        &mut jdk_subkey) as u32;
+                if winapi::winerror::ERROR_SUCCESS != err_jdk_subkey {
+                    panic!(format!("Error opening registry key, \
+                            name: [{}], message: [{}]", subkey_name, errcode_to_string(err_jdk_subkey)));
+                }
+                defer!({
+                    advapi32::RegCloseKey(jdk_subkey);
+                });
+                // find out value len
+                let mut value_len: winapi::minwindef::DWORD = 0;
+                let mut value_type: winapi::minwindef::DWORD = 0;
+                let err_len = advapi32::RegQueryValueExW(
+                        jdk_subkey,
+                        wjava_home.as_ptr(),
+                        std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                        &mut value_type,
+                        std::ptr::null_mut::<winapi::minwindef::BYTE>(),
+                        &mut value_len) as u32;
+                if winapi::winerror::ERROR_SUCCESS != err_len || !(value_len > 0) || winapi::winnt::REG_SZ != value_type {
+                    panic!(format!("Error opening registry value len, \
+                            key: [{}], value: [{}], message: [{}]", subkey_name, java_home, errcode_to_string(err_len)));
+                }
+                // get value
+                let mut wvalue: std::vec::Vec<u16> = std::vec::Vec::new();
+                wvalue.resize((value_len as usize)/std::mem::size_of::<u16>(), 0);
+                let err_val = advapi32::RegQueryValueExW(
+                        jdk_subkey,
+                        wjava_home.as_ptr(),
+                        std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                        std::ptr::null_mut::<winapi::minwindef::DWORD>(),
+                        wvalue.as_mut_ptr() as winapi::minwindef::LPBYTE,
+                        &mut value_len) as u32;
+                if winapi::winerror::ERROR_SUCCESS != err_val {
+                    panic!(format!("Error opening registry value, \
+                            key: [{}], value: [{}], message: [{}]", subkey_name, java_home, errcode_to_string(err_val)));
+                }
+                // format and return path
+                let slice = std::slice::from_raw_parts(wvalue.as_ptr(), wvalue.len() - 1 as usize); 
+                let jpath_badslash = narrow(slice);
+                let mut jpath = jpath_badslash.replace("\\", "/");
+                if '/' as u8 != jpath.as_bytes()[jpath.len() - 1] {
+                    jpath.push('/');
+                }
+                jpath.push_str(java_exe_postfix);
+                return jpath;
+            }
+        }
+        panic!(format!("JDK 8 runtime directory not found, please install JDK 8, available versions: [{}].", versions));
     }
 }
 
 fn main() {
-    let netx_jar = "netx.jar";
+    let netx_jar = "../../netx.jar";
     let xboot_prefix = "-Xbootclasspath/a:";
     let main_class = "net.sourceforge.jnlp.runtime.Boot";
-    let log_dir_name = "IcedTeaWeb";
+    let log_dir_name = "IcedTeaWeb/";
     let log_file_name = "javaws_last_log.txt";
     std::panic::catch_unwind(|| {
         let cline: std::vec::Vec<std::string::String> = std::env::args().collect(); 
-        if 0 == cline.len() {
+        if cline.len() < 2 {
             panic!("No arguments specified. Please specify a path to JNLP file or a 'jnlp://' URL.");
         }
         let localdir = process_dir();
-        let java = "jdk/bin/java.exe"; //itw::find_java_exe();
+        let java = find_java_exe();
         let mut args: std::vec::Vec<std::string::String> = std::vec::Vec::new();
         args.push(format!("{}{}{}", xboot_prefix, localdir, netx_jar));
         args.push(main_class.to_string());
@@ -460,7 +599,7 @@ fn main() {
         let logdir = uddir + log_dir_name;
         create_dir(logdir.as_str());
         let logfile = format!("{}{}", logdir, log_file_name);
-        start_process(java, &args, logfile.as_str());
+        start_process(java.as_str(), &args, logfile.as_str());
     }).unwrap_or_else(|e| {
         show_error_dialog(errloc_macros::msg(&e));
     });
