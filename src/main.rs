@@ -25,11 +25,67 @@ extern crate libc;
 #[cfg(windows)]
 #[repr(C)]
 #[allow(non_snake_case)]
-struct STARTUPINFOEXW {
+pub struct STARTUPINFOEXW {
     StartupInfo: winapi::processthreadsapi::STARTUPINFOW,
     lpAttributeList: winapi::processthreadsapi::PPROC_THREAD_ATTRIBUTE_LIST
 }
 
+#[cfg(windows)]
+#[repr(C, packed)]
+#[allow(non_snake_case)]
+pub struct TASKDIALOGCONFIG {
+    cbSize: winapi::minwindef::UINT,
+    hwndParent: winapi::windef::HWND,
+    hInstance: winapi::minwindef::HINSTANCE,
+    dwFlags: winapi::commctrl::TASKDIALOG_FLAGS,
+    dwCommonButtons: winapi::commctrl::TASKDIALOG_COMMON_BUTTON_FLAGS,
+    pszWindowTitle: winapi::winnt::PCWSTR,
+    pszMainIcon: winapi::winnt::PCWSTR,
+    pszMainInstruction: winapi::winnt::PCWSTR,
+    pszContent: winapi::winnt::PCWSTR,
+    cButtons: winapi::minwindef::UINT,
+    pButtons: *const winapi::commctrl::TASKDIALOG_BUTTON,
+    nDefaultButton: std::os::raw::c_int,
+    cRadioButtons: winapi::minwindef::UINT,
+    pRadioButtons: *const winapi::commctrl::TASKDIALOG_BUTTON,
+    nDefaultRadioButton: std::os::raw::c_int,
+    pszVerificationText: winapi::winnt::PCWSTR,
+    pszExpandedInformation: winapi::winnt::PCWSTR,
+    pszExpandedControlText: winapi::winnt::PCWSTR,
+    pszCollapsedControlText: winapi::winnt::PCWSTR,
+    pszFooterIcon: winapi::winnt::PCWSTR,
+    pszFooter: winapi::winnt::PCWSTR,
+    pfCallback: extern "system" fn(hwnd: winapi::windef::HWND, msg: winapi::minwindef::UINT, wParam: winapi::minwindef::WPARAM, lParam: winapi::minwindef::LPARAM, lpRefData: winapi::basetsd::LONG_PTR) -> winapi::winerror::HRESULT,
+    lpCallbackData: winapi::basetsd::LONG_PTR,
+    cxWidth: winapi::minwindef::UINT,
+}
+
+// https://github.com/retep998/winapi-rs/blob/2e79232883a819806ef2ae161bad5583783aabd9/src/um/winuser.rs#L135
+#[cfg(windows)]
+#[allow(non_snake_case)]
+fn MAKEINTRESOURCEW(i: winapi::minwindef::WORD) -> winapi::winnt::LPWSTR {
+    i as winapi::basetsd::ULONG_PTR as winapi::winnt::LPWSTR
+}
+
+#[cfg(windows)]
+extern "system" {
+    pub fn ShellExecuteW(
+        hwnd: winapi::windef::HWND,
+        lpOperation: winapi::winnt::LPCWSTR,
+        lpFile: winapi::winnt::LPCWSTR,
+        lpParameters: winapi::winnt::LPCWSTR,
+        lpDirectory: winapi::winnt::LPCWSTR,
+        nShowCmd: std::os::raw::c_int,
+    ) -> winapi::minwindef::HINSTANCE;
+    
+    pub fn TaskDialogIndirect(
+        pTaskConfig: *const TASKDIALOGCONFIG,
+        pnButton: *mut std::os::raw::c_int,
+        pnRadioButton: *mut std::os::raw::c_int,
+        pfVerificationFlagChecked: *mut winapi::minwindef::BOOL,
+    ) -> winapi::winerror::HRESULT;
+
+}
 
 #[cfg(windows)]
 fn widen(st: &str) -> std::vec::Vec<u16> {
@@ -337,17 +393,6 @@ fn start_process(executable: &str, args: &[std::string::String], out: &str) -> u
     }
 }
 
-extern "system" {
-    pub fn ShellExecuteW(
-        hwnd: winapi::windef::HWND,
-        lpOperation: winapi::winnt::LPCWSTR,
-        lpFile: winapi::winnt::LPCWSTR,
-        lpParameters: winapi::winnt::LPCWSTR,
-        lpDirectory: winapi::winnt::LPCWSTR,
-        nShowCmd: std::os::raw::c_int,
-    ) -> winapi::minwindef::HINSTANCE;
-}
-
 #[cfg(windows)]
 #[no_mangle]
 #[allow(non_snake_case)]
@@ -372,7 +417,7 @@ pub extern "system" fn error_dialog_cb(_: winapi::windef::HWND, uNotification: w
             let wempty = widen("");
             comctl32::TaskDialog(
                     std::ptr::null_mut::<winapi::windef::HWND__>(),
-                    std::ptr::null_mut::<winapi::minwindef::HINSTANCE__>(),
+                    kernel32::GetModuleHandleW(std::ptr::null_mut::<u16>()),
                     wtitle.as_ptr(),
                     werror.as_ptr(),
                     wempty.as_ptr(),
@@ -388,23 +433,23 @@ pub extern "system" fn error_dialog_cb(_: winapi::windef::HWND, uNotification: w
 fn show_error_dialog(error: &str) -> () {
     let wtitle = widen("IcedTea-Web");
     let url = "http://icedtea.classpath.org/wiki/IcedTea-Web";
+    let link = format!("<a href=\"{}\">{}</a>", url, url);
+    let wlink = widen(link.as_str());
     let wmain = widen("IcedTea-Web was unable to start Java VM.\n\nPlease follow the link below for troubleshooting information.");
     let wexpanded = widen("Hide detailed error message");
     let wcollapsed = widen("Show detailed error message");
     let werror = widen(error);
 
-    let link = format!("<a href=\"{}\">{}</a>", url, url);
-    let wlink = widen(link.as_str());
     unsafe {
-        let cf = winapi::commctrl::TASKDIALOGCONFIG {
-            cbSize: std::mem::size_of::<winapi::commctrl::TASKDIALOGCONFIG>() as u32,
+        let cf = TASKDIALOGCONFIG {
+            cbSize: std::mem::size_of::<TASKDIALOGCONFIG>() as u32,
             hwndParent: std::ptr::null_mut::<winapi::windef::HWND__>(),
-            hInstance: std::ptr::null_mut::<winapi::minwindef::HINSTANCE__>(),
+            hInstance: kernel32::GetModuleHandleW(std::ptr::null_mut::<u16>()),
             dwFlags: winapi::commctrl::TDF_ENABLE_HYPERLINKS | winapi::commctrl::TDF_EXPAND_FOOTER_AREA | 
                     winapi::commctrl::TDF_ALLOW_DIALOG_CANCELLATION | winapi::commctrl::TDF_SIZE_TO_CONTENT,
             dwCommonButtons: winapi::commctrl::TDCBF_CLOSE_BUTTON,
             pszWindowTitle: wtitle.as_ptr(),
-            hMainIcon: std::ptr::null_mut::<winapi::windef::HICON__>(),
+            pszMainIcon: MAKEINTRESOURCEW(111),
             pszMainInstruction: wmain.as_ptr(),
             pszContent: std::ptr::null_mut::<u16>(),
             cButtons: 0,
@@ -417,23 +462,18 @@ fn show_error_dialog(error: &str) -> () {
             pszExpandedInformation: werror.as_ptr(),
             pszExpandedControlText: wexpanded.as_ptr(),
             pszCollapsedControlText: wcollapsed.as_ptr(),
-            hFooterIcon: std::ptr::null_mut::<winapi::windef::HICON__>(),
+            pszFooterIcon: MAKEINTRESOURCEW(111),
             pszFooter: wlink.as_ptr(),
-            pfCallback: Some(error_dialog_cb),
+            pfCallback: error_dialog_cb,
             lpCallbackData: 0,
             cxWidth: 0,
-        };
-        let err = comctl32::TaskDialogIndirect(
+        };        
+        
+        TaskDialogIndirect(
                 &cf,
                 std::ptr::null_mut::<std::os::raw::c_int>(),
                 std::ptr::null_mut::<std::os::raw::c_int>(),
                 std::ptr::null_mut::<winapi::minwindef::BOOL>());
-        println!("{:?}", err);
-        user32::MessageBoxW(
-                std::ptr::null_mut::<winapi::windef::HWND__>(),
-                werror.as_ptr(),
-                wtitle.as_ptr(),
-                winapi::winuser::MB_OK);
     }
 }
 

@@ -43,8 +43,6 @@ const GUID ITW_FOLDERID_LocalAppData = FOLDERID_LocalAppData;
 
 namespace itw {
 
-HINSTANCE ITW_HANDLE_INSTANCE = nullptr;
-
 namespace detail_defer {
 
 // http://stackoverflow.com/a/17356259/314015
@@ -356,68 +354,79 @@ int start_process(const std::string& executable, const std::vector<std::string>&
     return res;
 }
 
+HRESULT error_dialog_cb(HWND, UINT uNotification, WPARAM, LPARAM lParam, LONG_PTR) {
+    if (TDN_HYPERLINK_CLICKED != uNotification) {
+        return S_OK;
+    }
+    HINSTANCE res = ::ShellExecuteW(
+            nullptr,
+            nullptr,
+            reinterpret_cast<LPCTSTR> (lParam),
+            nullptr,
+            nullptr,
+            SW_SHOW);
+    int64_t intres = reinterpret_cast<int64_t> (res);
+    bool success = intres > 32;
+    if (!success) {
+        static std::wstring wtitle = widen("IcedTea-Web");
+        static std::wstring werror = widen("Error starting default web-browser");
+        static std::wstring wempty = widen(std::string());
+        ::TaskDialog(
+                nullptr,
+                ::GetModuleHandleW(nullptr),
+                wtitle.c_str(),
+                werror.c_str(),
+                wempty.c_str(),
+                TDCBF_CLOSE_BUTTON,
+                TD_ERROR_ICON,
+                nullptr);
+    }
+    return S_OK;
+}
+
 void show_error_dialog(const std::string& error) {
     static std::wstring wtitle = widen("IcedTea-Web");
     static std::string url = "http://icedtea.classpath.org/wiki/IcedTea-Web";
+    auto link = std::string("<a href=\"") + url + "\">" + url + "</a>";
+    auto wlink = widen(link);
     static std::wstring wmain = widen("IcedTea-Web was unable to start Java VM.\n\nPlease follow the link below for troubleshooting information.");
     static std::wstring wexpanded = widen("Hide detailed error message");
     static std::wstring wcollapsed = widen("Show detailed error message");
     std::wstring werror = widen(error);
 
     TASKDIALOGCONFIG cf;
-    memset(std::addressof(cf), '\0', sizeof(TASKDIALOGCONFIG));
+    // memset(std::addressof(cf), '\0', sizeof(TASKDIALOGCONFIG));
     cf.cbSize = sizeof(TASKDIALOGCONFIG);
-    //cf.hwndParent = hwnd;
+    cf.hwndParent = nullptr;
+    cf.hInstance = ::GetModuleHandleW(nullptr);
     cf.dwFlags = TDF_ENABLE_HYPERLINKS | TDF_EXPAND_FOOTER_AREA | TDF_ALLOW_DIALOG_CANCELLATION | TDF_SIZE_TO_CONTENT;
-    cf.hInstance = itw::ITW_HANDLE_INSTANCE;
-    auto link = std::string("<a href=\"") + url + "\">" + url + "</a>";
-    auto wlink = widen(link);
-    cf.pszFooter = wlink.c_str();
-    cf.pfCallback = [](HWND, UINT uNotification, WPARAM, LPARAM lParam, LONG_PTR) {
-        if (TDN_HYPERLINK_CLICKED != uNotification) {
-            return S_OK;
-        }
-        HINSTANCE res = ::ShellExecuteW(
-                nullptr,
-                nullptr,
-                reinterpret_cast<LPCTSTR> (lParam),
-                nullptr,
-                nullptr,
-                SW_SHOW);
-        int64_t intres = reinterpret_cast<int64_t> (res);
-        bool success = intres > 32;
-        if (!success) {
-            static std::wstring wtitle = widen("IcedTea-Web");
-            static std::wstring werror = widen("Error starting default web-browser");
-            static std::wstring wempty = widen(std::string());
-            ::TaskDialog(
-                    nullptr,
-                    itw::ITW_HANDLE_INSTANCE,
-                    wtitle.c_str(),
-                    werror.c_str(),
-                    wempty.c_str(),
-                    TDCBF_CLOSE_BUTTON,
-                    TD_ERROR_ICON,
-                    nullptr);
-        }
-        return S_OK;
-    };
+    cf.dwCommonButtons = TDCBF_CLOSE_BUTTON;
     cf.pszWindowTitle = wtitle.c_str();
-    cf.pszMainIcon = MAKEINTRESOURCE(111);
+    cf.pszMainIcon = MAKEINTRESOURCEW(111);
     cf.pszMainInstruction = wmain.c_str();
-    cf.pszFooterIcon = MAKEINTRESOURCE(111);
+    cf.pszContent = nullptr;
+    cf.cButtons = 0;
+    cf.pButtons = nullptr;
+    cf.nDefaultButton = 0;
+    cf.cRadioButtons = 0;
+    cf.pRadioButtons = nullptr;
+    cf.nDefaultRadioButton = 0;
+    cf.pszVerificationText = nullptr;
     cf.pszExpandedInformation = werror.c_str();
     cf.pszExpandedControlText = wexpanded.c_str();
     cf.pszCollapsedControlText = wcollapsed.c_str();
+    cf.pszFooterIcon = MAKEINTRESOURCEW(111);
+    cf.pszFooter = wlink.c_str();    
+    cf.pfCallback = error_dialog_cb;
+    cf.lpCallbackData = 0;
     cf.cxWidth = 0;
-    cf.dwCommonButtons = TDCBF_CLOSE_BUTTON;
+    
     ::TaskDialogIndirect(
             std::addressof(cf),
             nullptr,
             nullptr,
             nullptr);
 }
-
 
 std::string find_java_exe() {
     static std::string jdk_key_name = "SOFTWARE\\JavaSoft\\Java Development Kit";
@@ -561,7 +570,7 @@ std::string find_java_exe() {
 
 } // namespace
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int) {
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR lpCmdLine, int) {
     //static std::string next_jar = "../share/icedtea-web/netx.jar";
     static std::string netx_jar = "netx.jar";
     static std::string xboot_prefix = "-Xbootclasspath/a:";
@@ -569,7 +578,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int) {
     static std::string log_dir_name = "IcedTeaWeb/";
     static std::string log_file_name = "javaws_last_log.txt";
     try {
-        itw::ITW_HANDLE_INSTANCE = hInstance;
         auto cline = std::string(lpCmdLine);
         if (cline.empty()) {
             throw itw::itw_exception("No arguments specified. Please specify a path to JNLP file or a 'jnlp://' URL.");
