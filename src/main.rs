@@ -9,8 +9,6 @@ extern crate advapi32;
 extern crate kernel32;
 #[cfg(windows)]
 extern crate ole32;
-#[cfg(windows)]
-extern crate libc;
 
 // https://crates.io/crates/errloc_macros
 macro_rules! errloc {
@@ -144,6 +142,10 @@ type PWSTR = *mut WCHAR;
 #[cfg(windows)]
 type HRESULT = std::os::raw::c_long;
 
+#[cfg(windows)]
+#[allow(non_camel_case_types)]
+type size_t = usize;
+
 
 // https://github.com/retep998/winapi-rs/blob/2e79232883a819806ef2ae161bad5583783aabd9/src/um/winuser.rs#L135
 #[cfg(windows)]
@@ -188,6 +190,18 @@ extern "system" {
         hToken: HANDLE,
         pszPath: *mut PWSTR
     ) -> HRESULT;
+
+    pub fn wcslen(
+        buf: *const wchar_t
+    ) -> size_t;
+
+    pub fn malloc(
+        size: size_t
+    ) -> *mut std::os::raw::c_void;
+
+    pub fn free(
+        p: *mut std::os::raw::c_void
+    );
 }
 
 #[cfg(windows)]
@@ -337,7 +351,7 @@ fn userdata_dir() -> std::string::String {
         defer!({
             ole32::CoTaskMemFree(wbuf as *mut std::os::raw::c_void);
         });
-        let slice = std::slice::from_raw_parts(wbuf, libc::wcslen(wbuf)); 
+        let slice = std::slice::from_raw_parts(wbuf, wcslen(wbuf));
         let path_badslash = narrow(slice);
         let mut path = path_badslash.replace("\\", "/");
         path.push('/');
@@ -399,13 +413,13 @@ fn start_process(executable: &str, args: &[std::string::String], out: &str) -> u
             panic!(format!("Error preparing attrlist, \
                     message: [{}]", errcode_to_string(kernel32::GetLastError())));
         }
-        let talist = libc::malloc(tasize as usize) as *mut winapi::processthreadsapi::PROC_THREAD_ATTRIBUTE_LIST;
+        let talist = malloc(tasize as usize) as *mut winapi::processthreadsapi::PROC_THREAD_ATTRIBUTE_LIST;
         if std::ptr::null_mut::<winapi::processthreadsapi::PROC_THREAD_ATTRIBUTE_LIST>() == talist {
             panic!(format!("Error preparing attrlist, \
                     message: [{}]", errcode_to_string(kernel32::GetLastError())));
         }
         defer!({
-            libc::free(talist as *mut libc::c_void);
+            free(talist as *mut std::os::raw::c_void);
         });
         let err_ta = kernel32::InitializeProcThreadAttributeList(
                 talist,
