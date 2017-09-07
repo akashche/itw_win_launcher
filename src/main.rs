@@ -7,8 +7,6 @@ extern crate user32;
 extern crate advapi32;
 #[cfg(windows)]
 extern crate kernel32;
-#[cfg(windows)]
-extern crate ole32;
 
 // https://crates.io/crates/errloc_macros
 macro_rules! errloc {
@@ -146,6 +144,9 @@ type HRESULT = std::os::raw::c_long;
 #[allow(non_camel_case_types)]
 type size_t = usize;
 
+#[cfg(windows)]
+type LPVOID = *mut std::os::raw::c_void;
+
 
 // https://github.com/retep998/winapi-rs/blob/2e79232883a819806ef2ae161bad5583783aabd9/src/um/winuser.rs#L135
 #[cfg(windows)]
@@ -201,6 +202,10 @@ extern "system" {
 
     pub fn free(
         p: *mut std::os::raw::c_void
+    );
+
+    pub fn CoTaskMemFree(
+        pv: LPVOID
     );
 }
 
@@ -349,7 +354,7 @@ fn userdata_dir() -> std::string::String {
             panic!("Error getting userdata dir");
         }
         defer!({
-            ole32::CoTaskMemFree(wbuf as *mut std::os::raw::c_void);
+            CoTaskMemFree(wbuf as *mut std::os::raw::c_void);
         });
         let slice = std::slice::from_raw_parts(wbuf, wcslen(wbuf));
         let path_badslash = narrow(slice);
