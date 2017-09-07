@@ -1,7 +1,4 @@
 
-#[macro_use]
-extern crate scopeguard;
-
 #[cfg(windows)]
 extern crate winapi;
 #[cfg(windows)]
@@ -19,7 +16,7 @@ extern crate comctl32;
 #[cfg(windows)]
 extern crate libc;
 
-// errloc
+// https://crates.io/crates/errloc_macros
 macro_rules! errloc {
     () => {
         concat!(file!(), ':', line!())
@@ -38,6 +35,32 @@ fn errloc_msg<'a>(e: &'a std::boxed::Box<std::any::Any + std::marker::Send + 'st
     }
 }
 
+// https://crates.io/crates/scopeguard
+pub struct ScopeGuard<T, F> where F: FnMut(&mut T) {
+    __dropfn: F,
+    __value: T
+}
+
+impl<T, F> ScopeGuard<T, F> where F: FnMut(&mut T) {
+    pub fn new(v: T, dropfn: F) -> ScopeGuard<T, F> {
+        ScopeGuard {
+            __value: v,
+            __dropfn: dropfn
+        }
+    }
+}
+
+impl<T, F> Drop for ScopeGuard<T, F> where F: FnMut(&mut T) {
+    fn drop(&mut self) {
+        (self.__dropfn)(&mut self.__value)
+    }
+}
+
+macro_rules! defer {
+    ($e:expr) => {
+        let _deferred = ScopeGuard::new((), |_| $e);
+    }
+}
 
 #[cfg(windows)]
 #[repr(C)]
