@@ -1,9 +1,4 @@
 
-#[cfg(windows)]
-extern crate winapi;
-#[cfg(windows)]
-extern crate user32;
-
 // https://crates.io/crates/errloc_macros
 macro_rules! errloc {
     () => {
@@ -62,20 +57,20 @@ pub struct STARTUPINFOEXW {
 #[repr(C, packed)]
 #[allow(non_snake_case)]
 pub struct TASKDIALOGCONFIG {
-    cbSize: winapi::minwindef::UINT,
+    cbSize: UINT,
     hwndParent: HWND,
     hInstance: HINSTANCE,
-    dwFlags: winapi::commctrl::TASKDIALOG_FLAGS,
-    dwCommonButtons: winapi::commctrl::TASKDIALOG_COMMON_BUTTON_FLAGS,
+    dwFlags: u32,
+    dwCommonButtons: TASKDIALOG_COMMON_BUTTON_FLAGS,
     pszWindowTitle: PCWSTR,
     pszMainIcon: PCWSTR,
     pszMainInstruction: PCWSTR,
     pszContent: PCWSTR,
-    cButtons: winapi::minwindef::UINT,
-    pButtons: *const winapi::commctrl::TASKDIALOG_BUTTON,
+    cButtons: UINT,
+    pButtons: *const TASKDIALOG_BUTTON,
     nDefaultButton: std::os::raw::c_int,
-    cRadioButtons: winapi::minwindef::UINT,
-    pRadioButtons: *const winapi::commctrl::TASKDIALOG_BUTTON,
+    cRadioButtons: UINT,
+    pRadioButtons: *const TASKDIALOG_BUTTON,
     nDefaultRadioButton: std::os::raw::c_int,
     pszVerificationText: PCWSTR,
     pszExpandedInformation: PCWSTR,
@@ -83,21 +78,91 @@ pub struct TASKDIALOGCONFIG {
     pszCollapsedControlText: PCWSTR,
     pszFooterIcon: PCWSTR,
     pszFooter: PCWSTR,
-    pfCallback: extern "system" fn(hwnd: HWND, msg: winapi::minwindef::UINT, wParam: winapi::minwindef::WPARAM, lParam: winapi::minwindef::LPARAM, lpRefData: winapi::basetsd::LONG_PTR) -> HRESULT,
-    lpCallbackData: winapi::basetsd::LONG_PTR,
-    cxWidth: winapi::minwindef::UINT,
+    pfCallback: extern "system" fn(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM, lpRefData: LONG_PTR) -> HRESULT,
+    lpCallbackData: LONG_PTR,
+    cxWidth: UINT,
 }
 
 #[cfg(windows)]
 #[repr(C)]
+#[allow(non_snake_case)]
+pub struct TASKDIALOG_BUTTON {
+    pub nButtonID: std::os::raw::c_int,
+    pub pszButtonText: PCWSTR,
+}
+
+#[cfg(windows)]
+#[repr(u32)]
 #[allow(non_camel_case_types)]
-pub enum TASKDIALOG_COMMON_BUTTON_FLAGS {
+#[allow(dead_code)]
+enum TASKDIALOG_FLAGS {
+    TDF_ENABLE_HYPERLINKS = 0x0001,
+    TDF_USE_HICON_MAIN = 0x0002,
+    TDF_USE_HICON_FOOTER = 0x0004,
+    TDF_ALLOW_DIALOG_CANCELLATION = 0x0008,
+    TDF_USE_COMMAND_LINKS = 0x0010,
+    TDF_USE_COMMAND_LINKS_NO_ICON = 0x0020,
+    TDF_EXPAND_FOOTER_AREA = 0x0040,
+    TDF_EXPANDED_BY_DEFAULT = 0x0080,
+    TDF_VERIFICATION_FLAG_CHECKED = 0x0100,
+    TDF_SHOW_PROGRESS_BAR = 0x0200,
+    TDF_SHOW_MARQUEE_PROGRESS_BAR = 0x0400,
+    TDF_CALLBACK_TIMER = 0x0800,
+    TDF_POSITION_RELATIVE_TO_WINDOW = 0x1000,
+    TDF_RTL_LAYOUT = 0x2000,
+    TDF_NO_DEFAULT_RADIO_BUTTON = 0x4000,
+    TDF_CAN_BE_MINIMIZED = 0x8000,
+    TDF_NO_SET_FOREGROUND = 0x00010000,
+    TDF_SIZE_TO_CONTENT = 0x01000000,
+}
+
+#[cfg(windows)]
+#[repr(u32)]
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+enum TASKDIALOG_COMMON_BUTTON_FLAGS {
     TDCBF_OK_BUTTON = 0x0001,
     TDCBF_YES_BUTTON = 0x0002,
     TDCBF_NO_BUTTON = 0x0004,
     TDCBF_CANCEL_BUTTON = 0x0008,
     TDCBF_RETRY_BUTTON = 0x0010,
     TDCBF_CLOSE_BUTTON = 0x0020,
+}
+
+#[cfg(windows)]
+#[repr(u32)]
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+enum KNOWN_FOLDER_FLAG {
+    KF_FLAG_DEFAULT = 0x00000000,
+    KF_FLAG_NO_APPCONTAINER_REDIRECTION = 0x00010000,
+    KF_FLAG_CREATE = 0x00008000,
+    KF_FLAG_DONT_VERIFY = 0x00004000,
+    KF_FLAG_DONT_UNEXPAND = 0x00002000,
+    KF_FLAG_NO_ALIAS = 0x00001000,
+    KF_FLAG_INIT = 0x00000800,
+    KF_FLAG_DEFAULT_PATH = 0x00000400,
+    KF_FLAG_NOT_PARENT_RELATIVE = 0x00000200,
+    KF_FLAG_SIMPLE_IDLIST = 0x00000100,
+    KF_FLAG_ALIAS_ONLY = 0x80000000u32,
+}
+
+#[cfg(windows)]
+#[repr(u32)]
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+enum TASKDIALOG_NOTIFICATIONS {
+    TDN_CREATED = 0,
+    TDN_NAVIGATED = 1,
+    TDN_BUTTON_CLICKED = 2,
+    TDN_HYPERLINK_CLICKED = 3,
+    TDN_TIMER = 4,
+    TDN_DESTROYED = 5,
+    TDN_RADIO_BUTTON_CLICKED = 6,
+    TDN_DIALOG_CONSTRUCTED = 7,
+    TDN_VERIFICATION_CLICKED = 8,
+    TDN_HELP = 9,
+    TDN_EXPANDO_BUTTON_CLICKED = 10,
 }
 
 #[cfg(windows)]
@@ -239,9 +304,98 @@ type PVOID = *mut std::os::raw::c_void;
 type LONG = std::os::raw::c_long;
 
 #[cfg(windows)]
+#[allow(non_camel_case_types)]
+type UINT_PTR = u64;
+
+#[cfg(windows)]
+type WPARAM = UINT_PTR;
+
+#[cfg(windows)]
+#[allow(non_camel_case_types)]
+type LONG_PTR = i64;
+
+#[cfg(windows)]
+type LPARAM = LONG_PTR;
+
+#[cfg(windows)]
+type LANGID = WORD;
+
+#[cfg(windows)]
+const CP_UTF8: DWORD = 65001;
+
+#[cfg(windows)]
+const FORMAT_MESSAGE_ALLOCATE_BUFFER: DWORD = 0x00000100;
+
+#[cfg(windows)]
+const FORMAT_MESSAGE_FROM_SYSTEM: DWORD = 0x00001000;
+
+#[cfg(windows)]
+const FORMAT_MESSAGE_IGNORE_INSERTS: DWORD = 0x00000200;
+
+#[cfg(windows)]
+const LANG_NEUTRAL: WORD = 0x00;
+
+#[cfg(windows)]
+const SUBLANG_DEFAULT: WORD = 0x01;
+
+#[cfg(windows)]
+const MAX_PATH: usize = 260;
+
+#[cfg(windows)]
+const S_OK: HRESULT = 0;
+
+#[cfg(windows)]
+const ERROR_ALREADY_EXISTS: DWORD = 183;
+
+#[cfg(windows)]
+const TRUE: BOOL = 1;
+
+#[cfg(windows)]
+const FILE_WRITE_DATA: DWORD = 0x0002;
+
+#[cfg(windows)]
+const FILE_APPEND_DATA: DWORD = 0x0004;
+
+#[cfg(windows)]
+const FILE_SHARE_WRITE: DWORD = 0x00000002;
+
+#[cfg(windows)]
+const FILE_SHARE_READ: DWORD = 0x00000001;
+
+#[cfg(windows)]
+const CREATE_ALWAYS: DWORD = 2;
+
+#[cfg(windows)]
+const FILE_ATTRIBUTE_NORMAL: DWORD = 0x00000080;
+
+#[cfg(windows)]
+const INVALID_HANDLE_VALUE: HANDLE = -1isize as HANDLE;
+
+#[cfg(windows)]
+const ERROR_INSUFFICIENT_BUFFER: DWORD = 122;
+
+#[cfg(windows)]
+const STARTF_USESTDHANDLES: DWORD = 0x00000100;
+
+#[cfg(windows)]
+const CREATE_NEW_PROCESS_GROUP: DWORD = 0x00000200;
+
+#[cfg(windows)]
+const DETACHED_PROCESS: DWORD = 0x00000008;
+
+#[cfg(windows)]
+const CREATE_UNICODE_ENVIRONMENT: DWORD = 0x00000400;
+
+#[cfg(windows)]
+const EXTENDED_STARTUPINFO_PRESENT: DWORD = 0x00080000;
+
+#[cfg(windows)]
+const SW_SHOW: std::os::raw::c_int = 5;
+
+#[cfg(windows)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
-pub struct PROC_THREAD_ATTRIBUTE_LIST {
+struct PROC_THREAD_ATTRIBUTE_LIST {
     pub dummy: *mut std::os::raw::c_void,
 }
 
@@ -263,7 +417,31 @@ type REGSAM = ACCESS_MASK;
 #[cfg(windows)]
 pub const READ_CONTROL: DWORD = 0x00020000;
 
+#[cfg(windows)]
+const STANDARD_RIGHTS_READ: DWORD = READ_CONTROL;
 
+#[cfg(windows)]
+const KEY_QUERY_VALUE: REGSAM = 0x0001;
+
+#[cfg(windows)]
+const KEY_ENUMERATE_SUB_KEYS: REGSAM = 0x0008;
+
+#[cfg(windows)]
+const KEY_NOTIFY: REGSAM = 0x0010;
+
+#[cfg(windows)]
+const SYNCHRONIZE: DWORD = 0x00100000;
+
+#[cfg(windows)]
+const REG_SZ: DWORD = 1;
+
+#[cfg(windows)]
+const KEY_READ: REGSAM = (
+    STANDARD_RIGHTS_READ |
+        KEY_QUERY_VALUE |
+        KEY_ENUMERATE_SUB_KEYS |
+        KEY_NOTIFY
+) & (!SYNCHRONIZE);
 
 #[cfg(windows)]
 type HKEY = *mut std::os::raw::c_void;
@@ -274,6 +452,15 @@ pub const HKEY_LOCAL_MACHINE: HKEY = 0x80000002 as HKEY;
 #[cfg(windows)]
 type PHKEY = *mut HKEY;
 
+
+#[cfg(windows)]
+#[allow(non_snake_case)]
+fn MAKELANGID(p: WORD, s: WORD) -> LANGID {
+    (s << 10 | p)
+}
+
+#[cfg(windows)]
+const ERROR_SUCCESS: DWORD = 0;
 
 #[cfg(windows)]
 #[repr(C)]
@@ -330,15 +517,15 @@ type PFILETIME = *mut FILETIME;
 // https://github.com/retep998/winapi-rs/blob/2e79232883a819806ef2ae161bad5583783aabd9/src/um/winuser.rs#L135
 #[cfg(windows)]
 #[allow(non_snake_case)]
-fn MAKEINTRESOURCEW(i: winapi::minwindef::WORD) -> winapi::winnt::LPWSTR {
-    i as winapi::basetsd::ULONG_PTR as winapi::winnt::LPWSTR
+fn MAKEINTRESOURCEW(i: WORD) -> LPWSTR {
+    i as ULONG_PTR as LPWSTR
 }
 
 
 #[cfg(windows)]
 extern "system" {
 
-    pub fn MultiByteToWideChar(
+    fn MultiByteToWideChar(
         CodePage: UINT,
         dwFlags: DWORD,
         lpMultiByteStr: LPCCH,
@@ -347,7 +534,7 @@ extern "system" {
         cchWideChar: std::os::raw::c_int
     ) -> std::os::raw::c_int;
 
-    pub fn WideCharToMultiByte(
+    fn WideCharToMultiByte(
         CodePage: UINT,
         dwFlags: DWORD,
         lpWideCharStr: LPCWCH,
@@ -358,10 +545,10 @@ extern "system" {
         lpUsedDefaultChar: LPBOOL
     ) -> std::os::raw::c_int;
 
-    pub fn GetLastError(
+    fn GetLastError(
     ) -> DWORD;
 
-    pub fn FormatMessageW(
+    fn FormatMessageW(
         dwFlags: DWORD,
         lpSource: LPCVOID,
         dwMessageId: DWORD,
@@ -371,22 +558,22 @@ extern "system" {
         Arguments: *mut va_list
     ) -> DWORD;
 
-    pub fn LocalFree(
+    fn LocalFree(
         hMem: HLOCAL
     ) -> HLOCAL;
 
-    pub fn GetModuleFileNameW(
+    fn GetModuleFileNameW(
         hModule: HMODULE,
         lpFilename: LPWSTR,
         nSize: DWORD
     ) -> DWORD;
 
-    pub fn CreateDirectoryW(
+    fn CreateDirectoryW(
         lpPathName: LPCWSTR,
         lpSecurityAttributes: LPSECURITY_ATTRIBUTES
     ) -> BOOL;
 
-    pub fn CreateFileW(
+    fn CreateFileW(
         lpFileName: LPCWSTR,
         dwDesiredAccess: DWORD,
         dwShareMode: DWORD,
@@ -396,22 +583,22 @@ extern "system" {
         hTemplateFile: HANDLE
     ) -> HANDLE;
 
-    pub fn CloseHandle(
+    fn CloseHandle(
         hObject: HANDLE
     ) -> BOOL;
 
-    pub fn InitializeProcThreadAttributeList(
+    fn InitializeProcThreadAttributeList(
         lpAttributeList: LPPROC_THREAD_ATTRIBUTE_LIST,
         dwAttributeCount: DWORD,
         dwFlags: DWORD,
         lpSize: PSIZE_T
     ) -> BOOL;
 
-    pub fn DeleteProcThreadAttributeList(
+    fn DeleteProcThreadAttributeList(
         lpAttributeList: LPPROC_THREAD_ATTRIBUTE_LIST
     );
 
-    pub fn UpdateProcThreadAttribute(
+    fn UpdateProcThreadAttribute(
         lpAttributeList: LPPROC_THREAD_ATTRIBUTE_LIST,
         dwFlags: DWORD,
         Attribute: DWORD_PTR,
@@ -421,7 +608,7 @@ extern "system" {
         lpReturnSize: PSIZE_T
     ) -> BOOL;
 
-    pub fn CreateProcessW(
+    fn CreateProcessW(
         lpApplicationName: LPCWSTR,
         lpCommandLine: LPWSTR,
         lpProcessAttributes: LPSECURITY_ATTRIBUTES,
@@ -434,15 +621,15 @@ extern "system" {
         lpProcessInformation: LPPROCESS_INFORMATION
     ) -> BOOL;
 
-    pub fn GetModuleHandleW(
+    fn GetModuleHandleW(
         lpModuleName: LPCWSTR
     ) -> HMODULE;
 
-    pub fn GetProcessId(
+    fn GetProcessId(
         Process: HANDLE
     ) -> DWORD;
 
-    pub fn ShellExecuteW(
+    fn ShellExecuteW(
         hwnd: HWND,
         lpOperation: LPCWSTR,
         lpFile: LPCWSTR,
@@ -451,14 +638,14 @@ extern "system" {
         nShowCmd: std::os::raw::c_int,
     ) -> HINSTANCE;
     
-    pub fn TaskDialogIndirect(
+    fn TaskDialogIndirect(
         pTaskConfig: *const TASKDIALOGCONFIG,
         pnButton: *mut std::os::raw::c_int,
         pnRadioButton: *mut std::os::raw::c_int,
-        pfVerificationFlagChecked: *mut winapi::minwindef::BOOL,
+        pfVerificationFlagChecked: *mut BOOL,
     ) -> HRESULT;
 
-    pub fn TaskDialog(
+    fn TaskDialog(
         hwndOwner: HWND,
         hInstance: HINSTANCE,
         pszWindowTitle: PCWSTR,
@@ -469,14 +656,14 @@ extern "system" {
         pnButton: *mut std::os::raw::c_int
     ) -> HRESULT;
 
-    pub fn SHGetKnownFolderPath(
+    fn SHGetKnownFolderPath(
         rfid: REFKNOWNFOLDERID,
         dwFlags: DWORD,
         hToken: HANDLE,
         pszPath: *mut PWSTR
     ) -> HRESULT;
 
-    pub fn RegOpenKeyExW(
+    fn RegOpenKeyExW(
         hKey: HKEY,
         lpSubKey: LPCWSTR,
         ulOptions: DWORD,
@@ -484,11 +671,11 @@ extern "system" {
         phkResult: PHKEY
     ) -> LONG;
 
-    pub fn RegCloseKey(
+    fn RegCloseKey(
         hKey: HKEY
     ) -> LONG;
 
-    pub fn RegQueryInfoKeyW(
+    fn RegQueryInfoKeyW(
         hKey: HKEY,
         lpClass: LPWSTR,
         lpcClass: LPDWORD,
@@ -503,7 +690,7 @@ extern "system" {
         lpftLastWriteTime: PFILETIME
     ) -> LONG;
 
-    pub fn RegEnumKeyExW(
+    fn RegEnumKeyExW(
         hKey: HKEY,
         dwIndex: DWORD,
         lpName: LPWSTR,
@@ -514,7 +701,7 @@ extern "system" {
         lpftLastWriteTime: PFILETIME
     ) -> LONG;
 
-    pub fn RegQueryValueExW(
+    fn RegQueryValueExW(
         hKey: HKEY,
         lpValueName: LPCWSTR,
         lpReserved: LPDWORD,
@@ -523,19 +710,19 @@ extern "system" {
         lpcbData: LPDWORD
     ) -> LONG;
 
-    pub fn wcslen(
+    fn wcslen(
         buf: *const wchar_t
     ) -> size_t;
 
-    pub fn malloc(
+    fn malloc(
         size: size_t
     ) -> *mut std::os::raw::c_void;
 
-    pub fn free(
+    fn free(
         p: *mut std::os::raw::c_void
     );
 
-    pub fn CoTaskMemFree(
+    fn CoTaskMemFree(
         pv: LPVOID
     );
 }
@@ -544,7 +731,7 @@ extern "system" {
 fn widen(st: &str) -> std::vec::Vec<u16> {
     unsafe {
         let size_needed = MultiByteToWideChar(
-                winapi::winnls::CP_UTF8,
+                CP_UTF8,
                 0,
                 st.as_ptr() as *mut i8,
                 st.len() as std::os::raw::c_int,
@@ -557,7 +744,7 @@ fn widen(st: &str) -> std::vec::Vec<u16> {
         let mut res: std::vec::Vec<u16> = std::vec::Vec::new();
         res.resize((size_needed + 1) as usize, 0);
         let chars_copied = MultiByteToWideChar(
-                winapi::winnls::CP_UTF8,
+                CP_UTF8,
                 0,
                 st.as_ptr() as *mut i8,
                 st.len() as std::os::raw::c_int,
@@ -576,7 +763,7 @@ fn widen(st: &str) -> std::vec::Vec<u16> {
 fn narrow(wst: &[u16]) -> std::string::String {
     unsafe {
         let size_needed = WideCharToMultiByte(
-                winapi::winnls::CP_UTF8,
+                CP_UTF8,
                 0,
                 wst.as_ptr(),
                 wst.len() as std::os::raw::c_int,
@@ -591,7 +778,7 @@ fn narrow(wst: &[u16]) -> std::string::String {
         let mut vec: std::vec::Vec<u8> = std::vec::Vec::new();
         vec.resize(size_needed as usize, 0);
         let bytes_copied = WideCharToMultiByte(
-                winapi::winnls::CP_UTF8,
+                CP_UTF8,
                 0,
                 wst.as_ptr(),
                 wst.len() as std::os::raw::c_int,
@@ -615,21 +802,21 @@ fn errcode_to_string(code: std::os::raw::c_ulong) -> std::string::String {
     unsafe {
         let mut buf: *mut u16 = std::ptr::null_mut::<u16>();
         let size = FormatMessageW(
-                winapi::winbase::FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                        winapi::winbase::FORMAT_MESSAGE_FROM_SYSTEM |
-                        winapi::winbase::FORMAT_MESSAGE_IGNORE_INSERTS,
+                FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                        FORMAT_MESSAGE_FROM_SYSTEM |
+                        FORMAT_MESSAGE_IGNORE_INSERTS,
                 std::ptr::null::<std::os::raw::c_void>(),
                 code,
-                winapi::winnt::MAKELANGID(winapi::winnt::LANG_NEUTRAL, winapi::winnt::SUBLANG_DEFAULT) as DWORD,
+                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT) as DWORD,
                 std::mem::transmute::<*mut *mut u16, *mut u16>(&mut buf),
                 0,
-                std::ptr::null_mut::<winapi::vadefs::va_list>());
+                std::ptr::null_mut::<va_list>());
         if 0 == size {
             return format!("Cannot format code: [{}] \
                  into message, error code: [{}]", code, GetLastError());
         }
         defer!({
-            LocalFree(buf as winapi::minwindef::HLOCAL);
+            LocalFree(buf as HLOCAL);
         });
         if size <= 2 {
             return format!("code: [{}], message: []", code);
@@ -648,7 +835,7 @@ fn errcode_to_string(code: std::os::raw::c_ulong) -> std::string::String {
 #[cfg(windows)]
 fn process_dir() -> std::string::String {
     let mut vec: std::vec::Vec<u16> = std::vec::Vec::new();
-    vec.resize(winapi::minwindef::MAX_PATH, 0);
+    vec.resize(MAX_PATH, 0);
     unsafe {
         let success = GetModuleFileNameW(
                 std::ptr::null_mut::<std::os::raw::c_void>() as HMODULE,
@@ -678,10 +865,10 @@ fn userdata_dir() -> std::string::String {
         let id = KNOWNFOLDERID { Data1: 0xF1B32785, Data2: 0x6FBA, Data3: 0x4FCF, Data4: dt4 };
         let err = SHGetKnownFolderPath(
                 &id,
-                winapi::shlobj::KF_FLAG_CREATE.0,
+                KNOWN_FOLDER_FLAG::KF_FLAG_CREATE as u32,
                 std::ptr::null_mut::<std::os::raw::c_void>(),
                 &mut wbuf);
-        if winapi::winerror::S_OK != err || std::ptr::null_mut::<u16>() == wbuf {
+        if S_OK != err || std::ptr::null_mut::<u16>() == wbuf {
             panic!("Error getting userdata dir");
         }
         defer!({
@@ -702,7 +889,7 @@ fn create_dir(dirpath: &str) -> () {
         let err = CreateDirectoryW(
                 wpath.as_ptr(),
                 std::ptr::null_mut::<SECURITY_ATTRIBUTES>());
-        if 0 == err && winapi::winerror::ERROR_ALREADY_EXISTS != GetLastError() {
+        if 0 == err && ERROR_ALREADY_EXISTS != GetLastError() {
             panic!(format!("Error getting creating dir, \
                 path: [{}], error: [{}]", dirpath, errcode_to_string(GetLastError())));
         }
@@ -717,17 +904,17 @@ fn start_process(executable: &str, args: &[std::string::String], out: &str) -> u
         let mut sa = SECURITY_ATTRIBUTES {
             nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as DWORD,
             lpSecurityDescriptor: std::ptr::null_mut::<std::os::raw::c_void>(),
-            bInheritHandle: winapi::minwindef::TRUE
+            bInheritHandle: TRUE
         };
         let mut out_handle = CreateFileW(
                 wout.as_ptr(),
-                winapi::winnt::FILE_WRITE_DATA | winapi::winnt::FILE_APPEND_DATA,
-                winapi::winnt::FILE_SHARE_WRITE | winapi::winnt::FILE_SHARE_READ,
+                FILE_WRITE_DATA | FILE_APPEND_DATA,
+                FILE_SHARE_WRITE | FILE_SHARE_READ,
                 &mut sa,
-                winapi::fileapi::CREATE_ALWAYS,
-                winapi::winnt::FILE_ATTRIBUTE_NORMAL,
+                CREATE_ALWAYS,
+                FILE_ATTRIBUTE_NORMAL,
                 std::ptr::null_mut::<std::os::raw::c_void>());
-        if winapi::shlobj::INVALID_HANDLE_VALUE == out_handle {
+        if INVALID_HANDLE_VALUE == out_handle {
             panic!(format!("Error opening log file descriptor, \
                     message: [{}], specified out path: [{}]", errcode_to_string(GetLastError()), out));
         }
@@ -738,14 +925,14 @@ fn start_process(executable: &str, args: &[std::string::String], out: &str) -> u
 
         // prepare list of handles to inherit
         // see: https://blogs.msdn.microsoft.com/oldnewthing/20111216-00/?p=8873
-        let mut tasize: winapi::basetsd::SIZE_T = 0;
+        let mut tasize: SIZE_T = 0;
         let err_tasize = InitializeProcThreadAttributeList(
                 std::ptr::null_mut::<PROC_THREAD_ATTRIBUTE_LIST>(),
                 1,
                 0,
                 &mut tasize);
 
-        if 0 != err_tasize || GetLastError() != winapi::winerror::ERROR_INSUFFICIENT_BUFFER {
+        if 0 != err_tasize || GetLastError() != ERROR_INSUFFICIENT_BUFFER {
             panic!(format!("Error preparing attrlist, \
                     message: [{}]", errcode_to_string(GetLastError())));
         }
@@ -775,9 +962,9 @@ fn start_process(executable: &str, args: &[std::string::String], out: &str) -> u
             0,
             (2 & 0x0000FFFF) | 0x00020000, // PROC_THREAD_ATTRIBUTE_HANDLE_LIST
             hptr as *mut std::os::raw::c_void,
-            std::mem::size_of::<*mut std::os::raw::c_void>() as winapi::basetsd::SIZE_T,
+            std::mem::size_of::<*mut std::os::raw::c_void>() as SIZE_T,
             std::ptr::null_mut::<std::os::raw::c_void>(),
-            std::ptr::null_mut::<winapi::basetsd::SIZE_T>());
+            std::ptr::null_mut::<SIZE_T>());
         if 0 == err_taset {
             panic!(format!("Error filling attrlist, \
                     message: [{}]", errcode_to_string(GetLastError())));
@@ -797,10 +984,10 @@ fn start_process(executable: &str, args: &[std::string::String], out: &str) -> u
                     dwXCountChars: 0,
                     dwYCountChars: 0,
                     dwFillAttribute: 0,
-                    dwFlags: winapi::winbase::STARTF_USESTDHANDLES,
+                    dwFlags: STARTF_USESTDHANDLES,
                     wShowWindow: 0,
                     cbReserved2: 0,
-                    lpReserved2: std::ptr::null_mut::<winapi::minwindef::BYTE>(),
+                    lpReserved2: std::ptr::null_mut::<BYTE>(),
                     hStdInput: std::ptr::null_mut::<std::os::raw::c_void>(),
                     hStdError: out_handle,
                     hStdOutput: out_handle },
@@ -827,9 +1014,9 @@ fn start_process(executable: &str, args: &[std::string::String], out: &str) -> u
                 wcmd.as_mut_ptr(),
                 std::ptr::null_mut::<SECURITY_ATTRIBUTES>(),
                 std::ptr::null_mut::<SECURITY_ATTRIBUTES>(),
-                winapi::minwindef::TRUE,
-                winapi::winbase::CREATE_NEW_PROCESS_GROUP | winapi::winbase::DETACHED_PROCESS |
-                        winapi::winbase::CREATE_UNICODE_ENVIRONMENT | winapi::winbase::EXTENDED_STARTUPINFO_PRESENT,
+                TRUE,
+                CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS |
+                        CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT,
                 std::ptr::null_mut::<std::os::raw::c_void>(),
                 std::ptr::null_mut::<u16>(),
                 &mut si.StartupInfo,
@@ -849,19 +1036,19 @@ fn start_process(executable: &str, args: &[std::string::String], out: &str) -> u
 #[cfg(windows)]
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "system" fn error_dialog_cb(_: HWND, uNotification: winapi::minwindef::UINT, _: winapi::minwindef::WPARAM,
-        lParam: winapi::minwindef::LPARAM, _: winapi::basetsd::LONG_PTR) -> HRESULT {
-    if winapi::commctrl::TDN_HYPERLINK_CLICKED.0 != uNotification {
-        return winapi::winerror::S_OK;
+pub extern "system" fn error_dialog_cb(_: HWND, uNotification: UINT, _: WPARAM,
+        lParam: LPARAM, _: LONG_PTR) -> HRESULT {
+    if TASKDIALOG_NOTIFICATIONS::TDN_HYPERLINK_CLICKED as u32 != uNotification {
+        return S_OK;
     }
     unsafe {
         let res = ShellExecuteW(
                 std::ptr::null_mut::<std::os::raw::c_void>(),
                 std::ptr::null_mut::<u16>(),
-                std::mem::transmute::<winapi::minwindef::LPARAM, LPCWSTR> (lParam),
+                std::mem::transmute::<LPARAM, LPCWSTR> (lParam),
                 std::ptr::null_mut::<u16>(),
                 std::ptr::null_mut::<u16>(),
-                winapi::winuser::SW_SHOW);
+                SW_SHOW);
         let intres = res as i64;
         let success = intres > 32;
         if !success {
@@ -878,7 +1065,7 @@ pub extern "system" fn error_dialog_cb(_: HWND, uNotification: winapi::minwindef
                     std::ptr::null::<u16>(), // TD_ERROR_ICON,
                     std::ptr::null_mut::<std::os::raw::c_int>());
         }
-        winapi::winerror::S_OK
+        S_OK
     }
 }
 
@@ -898,18 +1085,18 @@ fn show_error_dialog(error: &str) -> () {
             cbSize: std::mem::size_of::<TASKDIALOGCONFIG>() as u32,
             hwndParent: std::ptr::null_mut::<std::os::raw::c_void>(),
             hInstance: GetModuleHandleW(std::ptr::null_mut::<u16>()),
-            dwFlags: winapi::commctrl::TDF_ENABLE_HYPERLINKS | winapi::commctrl::TDF_EXPAND_FOOTER_AREA | 
-                    winapi::commctrl::TDF_ALLOW_DIALOG_CANCELLATION | winapi::commctrl::TDF_SIZE_TO_CONTENT,
-            dwCommonButtons: winapi::commctrl::TDCBF_CLOSE_BUTTON,
+            dwFlags: TASKDIALOG_FLAGS::TDF_ENABLE_HYPERLINKS as u32 | TASKDIALOG_FLAGS::TDF_EXPAND_FOOTER_AREA as u32 |
+                    TASKDIALOG_FLAGS::TDF_ALLOW_DIALOG_CANCELLATION as u32 | TASKDIALOG_FLAGS::TDF_SIZE_TO_CONTENT as u32,
+            dwCommonButtons: TASKDIALOG_COMMON_BUTTON_FLAGS::TDCBF_CLOSE_BUTTON,
             pszWindowTitle: wtitle.as_ptr(),
             pszMainIcon: MAKEINTRESOURCEW(111),
             pszMainInstruction: wmain.as_ptr(),
             pszContent: std::ptr::null_mut::<u16>(),
             cButtons: 0,
-            pButtons: std::ptr::null::<winapi::commctrl::TASKDIALOG_BUTTON>(),
+            pButtons: std::ptr::null::<TASKDIALOG_BUTTON>(),
             nDefaultButton: 0,
             cRadioButtons: 0,
-            pRadioButtons: std::ptr::null::<winapi::commctrl::TASKDIALOG_BUTTON>(),
+            pRadioButtons: std::ptr::null::<TASKDIALOG_BUTTON>(),
             nDefaultRadioButton: 0,
             pszVerificationText: std::ptr::null_mut::<u16>(),
             pszExpandedInformation: werror.as_ptr(),
@@ -926,7 +1113,7 @@ fn show_error_dialog(error: &str) -> () {
                 &cf,
                 std::ptr::null_mut::<std::os::raw::c_int>(),
                 std::ptr::null_mut::<std::os::raw::c_int>(),
-                std::ptr::null_mut::<winapi::minwindef::BOOL>());
+                std::ptr::null_mut::<BOOL>());
     }
 }
 
@@ -945,9 +1132,9 @@ fn find_java_exe() -> std::string::String {
                 HKEY_LOCAL_MACHINE,
                 wjdk_key_name.as_ptr(), 
                 0,
-                winapi::winnt::KEY_READ | winapi::winnt::KEY_ENUMERATE_SUB_KEYS,
+                KEY_READ | KEY_ENUMERATE_SUB_KEYS,
                 &mut jdk_key) as u32;
-        if winapi::winerror::ERROR_SUCCESS != err_jdk {
+        if ERROR_SUCCESS != err_jdk {
             panic!(format!("Error opening registry key, \
                     name: [{}], message: [{}]", jdk_key_name, errcode_to_string(err_jdk)));
         }
@@ -970,7 +1157,7 @@ fn find_java_exe() -> std::string::String {
                 std::ptr::null_mut::<DWORD>(),
                 std::ptr::null_mut::<DWORD>(),
                 std::ptr::null_mut::<FILETIME>()) as u32;
-        if winapi::winerror::ERROR_SUCCESS != err_info {
+        if ERROR_SUCCESS != err_info {
             panic!(format!("Error querieing registry key, \
                     name: [{}], message: [{}]", jdk_key_name, errcode_to_string(err_info)));
         }
@@ -991,7 +1178,7 @@ fn find_java_exe() -> std::string::String {
                     std::ptr::null_mut::<u16>(),
                     std::ptr::null_mut::<DWORD>(),
                     std::ptr::null_mut::<FILETIME>()) as u32;
-            if winapi::winerror::ERROR_SUCCESS != err_enum {
+            if ERROR_SUCCESS != err_enum {
                 panic!(format!("Error enumerating registry key, \
                         name: [{}], message: [{}]", jdk_key_name, errcode_to_string(err_enum)));
             }
@@ -1015,9 +1202,9 @@ fn find_java_exe() -> std::string::String {
                         HKEY_LOCAL_MACHINE,
                         wsubkey_name.as_ptr(), 
                         0,
-                        winapi::winnt::KEY_READ,
+                        KEY_READ,
                         &mut jdk_subkey) as u32;
-                if winapi::winerror::ERROR_SUCCESS != err_jdk_subkey {
+                if ERROR_SUCCESS != err_jdk_subkey {
                     panic!(format!("Error opening registry key, \
                             name: [{}], message: [{}]", subkey_name, errcode_to_string(err_jdk_subkey)));
                 }
@@ -1032,9 +1219,9 @@ fn find_java_exe() -> std::string::String {
                         wjava_home.as_ptr(),
                         std::ptr::null_mut::<DWORD>(),
                         &mut value_type,
-                        std::ptr::null_mut::<winapi::minwindef::BYTE>(),
+                        std::ptr::null_mut::<BYTE>(),
                         &mut value_len) as u32;
-                if winapi::winerror::ERROR_SUCCESS != err_len || !(value_len > 0) || winapi::winnt::REG_SZ != value_type {
+                if ERROR_SUCCESS != err_len || !(value_len > 0) || REG_SZ != value_type {
                     panic!(format!("Error opening registry value len, \
                             key: [{}], value: [{}], message: [{}]", subkey_name, java_home, errcode_to_string(err_len)));
                 }
@@ -1046,9 +1233,9 @@ fn find_java_exe() -> std::string::String {
                         wjava_home.as_ptr(),
                         std::ptr::null_mut::<DWORD>(),
                         std::ptr::null_mut::<DWORD>(),
-                        wvalue.as_mut_ptr() as winapi::minwindef::LPBYTE,
+                        wvalue.as_mut_ptr() as LPBYTE,
                         &mut value_len) as u32;
-                if winapi::winerror::ERROR_SUCCESS != err_val {
+                if ERROR_SUCCESS != err_val {
                     panic!(format!("Error opening registry value, \
                             key: [{}], value: [{}], message: [{}]", subkey_name, java_home, errcode_to_string(err_val)));
                 }
