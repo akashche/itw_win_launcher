@@ -10,8 +10,6 @@ extern crate kernel32;
 #[cfg(windows)]
 extern crate ole32;
 #[cfg(windows)]
-extern crate shell32;
-#[cfg(windows)]
 extern crate libc;
 
 // https://crates.io/crates/errloc_macros
@@ -110,6 +108,43 @@ pub enum TASKDIALOG_COMMON_BUTTON_FLAGS {
     TDCBF_CLOSE_BUTTON = 0x0020,
 }
 
+#[cfg(windows)]
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct GUID {
+    pub Data1: std::os::raw::c_ulong,
+    pub Data2: std::os::raw::c_ushort,
+    pub Data3: std::os::raw::c_ushort,
+    pub Data4: [std::os::raw::c_uchar; 8],
+}
+
+#[cfg(windows)]
+type KNOWNFOLDERID = GUID;
+
+#[cfg(windows)]
+type REFKNOWNFOLDERID = *const KNOWNFOLDERID;
+
+#[cfg(windows)]
+type DWORD = std::os::raw::c_ulong;
+
+#[cfg(windows)]
+type HANDLE = *mut std::os::raw::c_void;
+
+
+#[cfg(windows)]
+#[allow(non_camel_case_types)]
+type wchar_t = std::os::raw::c_ushort;
+
+#[cfg(windows)]
+type WCHAR = wchar_t;
+
+#[cfg(windows)]
+type PWSTR = *mut WCHAR;
+
+#[cfg(windows)]
+type HRESULT = std::os::raw::c_long;
+
+
 // https://github.com/retep998/winapi-rs/blob/2e79232883a819806ef2ae161bad5583783aabd9/src/um/winuser.rs#L135
 #[cfg(windows)]
 #[allow(non_snake_case)]
@@ -146,6 +181,13 @@ extern "system" {
         pszIcon: winapi::winnt::PCWSTR,
         pnButton: *mut std::os::raw::c_int
     ) -> winapi::winerror::HRESULT;
+
+    pub fn SHGetKnownFolderPath(
+        rfid: REFKNOWNFOLDERID,
+        dwFlags: DWORD,
+        hToken: HANDLE,
+        pszPath: *mut PWSTR
+    ) -> HRESULT;
 }
 
 #[cfg(windows)]
@@ -283,8 +325,8 @@ fn userdata_dir() -> std::string::String {
     unsafe {
         let mut wbuf: *mut u16 = std::ptr::null_mut::<u16>();
         let dt4: [std::os::raw::c_uchar; 8] = [ 0x9D, 0x55, 0x7B, 0x8E, 0x7F, 0x15, 0x70, 0x91 ];
-        let id = winapi::shtypes::KNOWNFOLDERID { Data1: 0xF1B32785, Data2: 0x6FBA, Data3: 0x4FCF, Data4: dt4 };
-        let err = shell32::SHGetKnownFolderPath(
+        let id = KNOWNFOLDERID { Data1: 0xF1B32785, Data2: 0x6FBA, Data3: 0x4FCF, Data4: dt4 };
+        let err = SHGetKnownFolderPath(
                 &id,
                 winapi::shlobj::KF_FLAG_CREATE.0,
                 std::ptr::null_mut::<std::os::raw::c_void>(),
