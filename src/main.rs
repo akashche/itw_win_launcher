@@ -1,7 +1,4 @@
 
-
-#[macro_use]
-extern crate errloc_macros;
 #[macro_use]
 extern crate scopeguard;
 
@@ -21,6 +18,26 @@ extern crate shell32;
 extern crate comctl32;
 #[cfg(windows)]
 extern crate libc;
+
+// errloc
+macro_rules! errloc {
+    () => {
+        concat!(file!(), ':', line!())
+    }
+}
+
+fn errloc_msg<'a>(e: &'a std::boxed::Box<std::any::Any + std::marker::Send + 'static>) -> &'a str {
+    match e.downcast_ref::<&str>() {
+        Some(st) => st,
+        None => {
+            match e.downcast_ref::<std::string::String>() {
+                Some(stw) => stw.as_str(),
+                None => "()",
+            }
+        },
+    }
+}
+
 
 #[cfg(windows)]
 #[repr(C)]
@@ -187,7 +204,7 @@ fn errcode_to_string(code: std::os::raw::c_ulong) -> std::string::String {
             format!("code: [{}], message: [{}]", code, msg)
         }).unwrap_or_else(|e| {
             format!("Cannot format code: [{}] \
-                 into message, narrow error: [{}]", code, errloc_macros::msg(&e))
+                 into message, narrow error: [{}]", code, errloc_msg(&e))
         })
     }
 }
@@ -467,8 +484,8 @@ fn show_error_dialog(error: &str) -> () {
             pfCallback: error_dialog_cb,
             lpCallbackData: 0,
             cxWidth: 0,
-        };        
-        
+        };
+
         TaskDialogIndirect(
                 &cf,
                 std::ptr::null_mut::<std::os::raw::c_int>(),
@@ -641,7 +658,7 @@ fn main() {
         let logfile = format!("{}{}", logdir, log_file_name);
         start_process(java.as_str(), &args, logfile.as_str());
     }).unwrap_or_else(|e| {
-        show_error_dialog(errloc_macros::msg(&e));
+        show_error_dialog(errloc_msg(&e));
     });
 }
 
