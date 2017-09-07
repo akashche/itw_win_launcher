@@ -3,8 +3,6 @@
 extern crate winapi;
 #[cfg(windows)]
 extern crate user32;
-#[cfg(windows)]
-extern crate advapi32;
 
 // https://crates.io/crates/errloc_macros
 macro_rules! errloc {
@@ -138,6 +136,9 @@ type WORD = std::os::raw::c_ushort;
 type DWORD = std::os::raw::c_ulong;
 
 #[cfg(windows)]
+type LPDWORD = *mut DWORD;
+
+#[cfg(windows)]
 type HANDLE = *mut std::os::raw::c_void;
 
 #[cfg(windows)]
@@ -235,7 +236,11 @@ type DWORD_PTR = ULONG_PTR;
 type PVOID = *mut std::os::raw::c_void;
 
 #[cfg(windows)]
+type LONG = std::os::raw::c_long;
+
+#[cfg(windows)]
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct PROC_THREAD_ATTRIBUTE_LIST {
     pub dummy: *mut std::os::raw::c_void,
 }
@@ -247,6 +252,28 @@ type LPPROC_THREAD_ATTRIBUTE_LIST = *mut PROC_THREAD_ATTRIBUTE_LIST;
 #[cfg(windows)]
 #[allow(non_camel_case_types)]
 type PPROC_THREAD_ATTRIBUTE_LIST = *mut PROC_THREAD_ATTRIBUTE_LIST;
+
+#[cfg(windows)]
+#[allow(non_camel_case_types)]
+type ACCESS_MASK = DWORD;
+
+#[cfg(windows)]
+type REGSAM = ACCESS_MASK;
+
+#[cfg(windows)]
+pub const READ_CONTROL: DWORD = 0x00020000;
+
+
+
+#[cfg(windows)]
+type HKEY = *mut std::os::raw::c_void;
+
+#[cfg(windows)]
+pub const HKEY_LOCAL_MACHINE: HKEY = 0x80000002 as HKEY;
+
+#[cfg(windows)]
+type PHKEY = *mut HKEY;
+
 
 #[cfg(windows)]
 #[repr(C)]
@@ -289,6 +316,16 @@ pub struct PROCESS_INFORMATION {
 #[allow(non_camel_case_types)]
 type LPPROCESS_INFORMATION = *mut PROCESS_INFORMATION;
 
+#[cfg(windows)]
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct FILETIME {
+    pub dwLowDateTime: DWORD,
+    pub dwHighDateTime: DWORD,
+}
+
+#[cfg(windows)]
+type PFILETIME = *mut FILETIME;
 
 // https://github.com/retep998/winapi-rs/blob/2e79232883a819806ef2ae161bad5583783aabd9/src/um/winuser.rs#L135
 #[cfg(windows)]
@@ -438,6 +475,53 @@ extern "system" {
         hToken: HANDLE,
         pszPath: *mut PWSTR
     ) -> HRESULT;
+
+    pub fn RegOpenKeyExW(
+        hKey: HKEY,
+        lpSubKey: LPCWSTR,
+        ulOptions: DWORD,
+        samDesired: REGSAM,
+        phkResult: PHKEY
+    ) -> LONG;
+
+    pub fn RegCloseKey(
+        hKey: HKEY
+    ) -> LONG;
+
+    pub fn RegQueryInfoKeyW(
+        hKey: HKEY,
+        lpClass: LPWSTR,
+        lpcClass: LPDWORD,
+        lpReserved: LPDWORD,
+        lpcSubKeys: LPDWORD,
+        lpcMaxSubKeyLen: LPDWORD,
+        lpcMaxClassLen: LPDWORD,
+        lpcValues: LPDWORD,
+        lpcMaxValueNameLen: LPDWORD,
+        lpcMaxValueLen: LPDWORD,
+        lpcbSecurityDescriptor: LPDWORD,
+        lpftLastWriteTime: PFILETIME
+    ) -> LONG;
+
+    pub fn RegEnumKeyExW(
+        hKey: HKEY,
+        dwIndex: DWORD,
+        lpName: LPWSTR,
+        lpcName: LPDWORD,
+        lpReserved: LPDWORD,
+        lpClass: LPWSTR,
+        lpcClass: LPDWORD,
+        lpftLastWriteTime: PFILETIME
+    ) -> LONG;
+
+    pub fn RegQueryValueExW(
+        hKey: HKEY,
+        lpValueName: LPCWSTR,
+        lpReserved: LPDWORD,
+        lpType: LPDWORD,
+        lpData: LPBYTE,
+        lpcbData: LPDWORD
+    ) -> LONG;
 
     pub fn wcslen(
         buf: *const wchar_t
@@ -856,9 +940,9 @@ fn find_java_exe() -> std::string::String {
     let java_exe_postfix = "bin/java.exe";
     unsafe {
         // open root
-        let mut jdk_key = std::ptr::null_mut::<winapi::minwindef::HKEY__>();
-        let err_jdk = advapi32::RegOpenKeyExW(
-                winapi::HKEY_LOCAL_MACHINE,
+        let mut jdk_key = std::ptr::null_mut::<std::os::raw::c_void>();
+        let err_jdk = RegOpenKeyExW(
+                HKEY_LOCAL_MACHINE,
                 wjdk_key_name.as_ptr(), 
                 0,
                 winapi::winnt::KEY_READ | winapi::winnt::KEY_ENUMERATE_SUB_KEYS,
@@ -868,12 +952,12 @@ fn find_java_exe() -> std::string::String {
                     name: [{}], message: [{}]", jdk_key_name, errcode_to_string(err_jdk)));
         }
         defer!({
-            advapi32::RegCloseKey(jdk_key);
+            RegCloseKey(jdk_key);
         });
         // identify buffer size for children
         let mut subkeys_num: DWORD = 0;
         let mut max_subkey_len: DWORD = 0;
-        let err_info = advapi32::RegQueryInfoKeyW(
+        let err_info = RegQueryInfoKeyW(
                 jdk_key,
                 std::ptr::null_mut::<u16>(),
                 std::ptr::null_mut::<DWORD>(),
@@ -885,7 +969,7 @@ fn find_java_exe() -> std::string::String {
                 std::ptr::null_mut::<DWORD>(),
                 std::ptr::null_mut::<DWORD>(),
                 std::ptr::null_mut::<DWORD>(),
-                std::ptr::null_mut::<winapi::minwindef::FILETIME>()) as u32;
+                std::ptr::null_mut::<FILETIME>()) as u32;
         if winapi::winerror::ERROR_SUCCESS != err_info {
             panic!(format!("Error querieing registry key, \
                     name: [{}], message: [{}]", jdk_key_name, errcode_to_string(err_info)));
@@ -898,7 +982,7 @@ fn find_java_exe() -> std::string::String {
         subkey_buf.resize(max_subkey_len as usize, 0);
         for i in 0..subkeys_num {
             let mut len = max_subkey_len;
-            let err_enum = advapi32::RegEnumKeyExW(
+            let err_enum = RegEnumKeyExW(
                     jdk_key,
                     i as DWORD,
                     subkey_buf.as_mut_ptr(),
@@ -906,7 +990,7 @@ fn find_java_exe() -> std::string::String {
                     std::ptr::null_mut::<DWORD>(),
                     std::ptr::null_mut::<u16>(),
                     std::ptr::null_mut::<DWORD>(),
-                    std::ptr::null_mut::<winapi::minwindef::FILETIME>()) as u32;
+                    std::ptr::null_mut::<FILETIME>()) as u32;
             if winapi::winerror::ERROR_SUCCESS != err_enum {
                 panic!(format!("Error enumerating registry key, \
                         name: [{}], message: [{}]", jdk_key_name, errcode_to_string(err_enum)));
@@ -926,9 +1010,9 @@ fn find_java_exe() -> std::string::String {
                 // found match, open it
                 let subkey_name = format!("{}\\{}", jdk_key_name, el);
                 let wsubkey_name = widen(subkey_name.as_str());
-                let mut jdk_subkey = std::ptr::null_mut::<winapi::minwindef::HKEY__>();
-                let err_jdk_subkey = advapi32::RegOpenKeyExW(
-                        winapi::HKEY_LOCAL_MACHINE,
+                let mut jdk_subkey = std::ptr::null_mut::<std::os::raw::c_void>();
+                let err_jdk_subkey = RegOpenKeyExW(
+                        HKEY_LOCAL_MACHINE,
                         wsubkey_name.as_ptr(), 
                         0,
                         winapi::winnt::KEY_READ,
@@ -938,12 +1022,12 @@ fn find_java_exe() -> std::string::String {
                             name: [{}], message: [{}]", subkey_name, errcode_to_string(err_jdk_subkey)));
                 }
                 defer!({
-                    advapi32::RegCloseKey(jdk_subkey);
+                    RegCloseKey(jdk_subkey);
                 });
                 // find out value len
                 let mut value_len: DWORD = 0;
                 let mut value_type: DWORD = 0;
-                let err_len = advapi32::RegQueryValueExW(
+                let err_len = RegQueryValueExW(
                         jdk_subkey,
                         wjava_home.as_ptr(),
                         std::ptr::null_mut::<DWORD>(),
@@ -957,7 +1041,7 @@ fn find_java_exe() -> std::string::String {
                 // get value
                 let mut wvalue: std::vec::Vec<u16> = std::vec::Vec::new();
                 wvalue.resize((value_len as usize)/std::mem::size_of::<u16>(), 0);
-                let err_val = advapi32::RegQueryValueExW(
+                let err_val = RegQueryValueExW(
                         jdk_subkey,
                         wjava_home.as_ptr(),
                         std::ptr::null_mut::<DWORD>(),
