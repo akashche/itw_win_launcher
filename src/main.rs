@@ -12,8 +12,6 @@ extern crate ole32;
 #[cfg(windows)]
 extern crate shell32;
 #[cfg(windows)]
-extern crate comctl32;
-#[cfg(windows)]
 extern crate libc;
 
 // https://crates.io/crates/errloc_macros
@@ -100,12 +98,25 @@ pub struct TASKDIALOGCONFIG {
     cxWidth: winapi::minwindef::UINT,
 }
 
+#[cfg(windows)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum TASKDIALOG_COMMON_BUTTON_FLAGS {
+    TDCBF_OK_BUTTON = 0x0001,
+    TDCBF_YES_BUTTON = 0x0002,
+    TDCBF_NO_BUTTON = 0x0004,
+    TDCBF_CANCEL_BUTTON = 0x0008,
+    TDCBF_RETRY_BUTTON = 0x0010,
+    TDCBF_CLOSE_BUTTON = 0x0020,
+}
+
 // https://github.com/retep998/winapi-rs/blob/2e79232883a819806ef2ae161bad5583783aabd9/src/um/winuser.rs#L135
 #[cfg(windows)]
 #[allow(non_snake_case)]
 fn MAKEINTRESOURCEW(i: winapi::minwindef::WORD) -> winapi::winnt::LPWSTR {
     i as winapi::basetsd::ULONG_PTR as winapi::winnt::LPWSTR
 }
+
 
 #[cfg(windows)]
 extern "system" {
@@ -125,6 +136,16 @@ extern "system" {
         pfVerificationFlagChecked: *mut winapi::minwindef::BOOL,
     ) -> winapi::winerror::HRESULT;
 
+    pub fn TaskDialog(
+        hwndOwner: winapi::windef::HWND,
+        hInstance: winapi::minwindef::HINSTANCE,
+        pszWindowTitle: winapi::winnt::PCWSTR,
+        pszMainInstruction: winapi::winnt::PCWSTR,
+        pszContent: winapi::winnt::PCWSTR,
+        dwCommonButtons: TASKDIALOG_COMMON_BUTTON_FLAGS,
+        pszIcon: winapi::winnt::PCWSTR,
+        pnButton: *mut std::os::raw::c_int
+    ) -> winapi::winerror::HRESULT;
 }
 
 #[cfg(windows)]
@@ -455,13 +476,13 @@ pub extern "system" fn error_dialog_cb(_: winapi::windef::HWND, uNotification: w
             let wtitle = widen("IcedTea-Web");
             let werror = widen("Error starting default web-browser");
             let wempty = widen("");
-            comctl32::TaskDialog(
+            TaskDialog(
                     std::ptr::null_mut::<winapi::windef::HWND__>(),
                     kernel32::GetModuleHandleW(std::ptr::null_mut::<u16>()),
                     wtitle.as_ptr(),
                     werror.as_ptr(),
                     wempty.as_ptr(),
-                    winapi::commctrl::TDCBF_CLOSE_BUTTON,
+                    TASKDIALOG_COMMON_BUTTON_FLAGS::TDCBF_CLOSE_BUTTON,
                     std::ptr::null::<u16>(), // TD_ERROR_ICON,
                     std::ptr::null_mut::<std::os::raw::c_int>());
         }
